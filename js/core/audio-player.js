@@ -59,12 +59,14 @@ export class AudioPlayer {
     if (this.currentSource) {
       this.audioContext.suspend();
       this.state.playing = false;
+      this.emit('paused');
     }
   }
 
   resume() {
     this.audioContext.resume();
     this.state.playing = true;
+    this.emit('playing');
   }
 
   stop() {
@@ -111,8 +113,11 @@ export class AudioPlayer {
 
       return await this.audioContext.decodeAudioData(audioData);
     } catch (error) {
-      console.error('Error loading track:', error);
-      throw new Error(`Failed to load track: ${error.message}`);
+      console.error('❌ Error loading audio track:', track.title || track.id);
+      console.error('Track URL:', track.url);
+      console.error('Error details:', error);
+      console.error('Stack trace:', error.stack);
+      throw new Error(`Failed to load track "${track.title}": ${error.message}`);
     }
   }
 
@@ -120,6 +125,16 @@ export class AudioPlayer {
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(gainNode);
+    
+    // Listen for track ended event
+    source.onended = () => {
+      // Only emit if this was the current playing source (not from crossfade cleanup)
+      if (source === this.currentSource && this.state.playing) {
+        console.log('🎵 Track ended naturally');
+        this.emit('trackEnded');
+      }
+    };
+    
     return source;
   }
 

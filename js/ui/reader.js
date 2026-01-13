@@ -103,14 +103,9 @@ export class ReaderUI {
   }
 
   async initializeReader() {
-    console.log('🔍 Initializing reader...');
-    
-    // Called when reader.html loads
     const bookData = sessionStorage.getItem('currentBook');
-    console.log('📖 Book data from sessionStorage:', bookData ? 'Found' : 'Not found');
     
     if (!bookData) {
-      console.warn('❌ No book data found, redirecting to library');
       alert('No book selected. Redirecting to library...');
       window.location.href = '/';
       return;
@@ -118,28 +113,16 @@ export class ReaderUI {
 
     try {
       const book = JSON.parse(bookData);
-      console.log('📚 Parsed book data:', book.title);
-      console.log('  Chapters available:', book.chapters?.length || 0);
       
       // Validate book data
       if (!book.chapters || book.chapters.length === 0) {
         throw new Error('No chapters found in book data');
       }
       
-      // Log first chapter for debugging
-      if (book.chapters[0]) {
-        console.log('  First chapter:', {
-          title: book.chapters[0].title,
-          contentLength: book.chapters[0].content?.length || 0,
-          contentPreview: book.chapters[0].content?.substring(0, 100) || 'NO CONTENT'
-        });
-      }
-      
       this.currentBook = { id: book.id, title: book.title, author: book.author };
       this.chapters = book.chapters;
 
-      // Prefer the most recently saved progress from IndexedDB (sessionStorage can be stale
-      // if the user refreshes the reader page).
+      // Prefer the most recently saved progress from IndexedDB
       let persistedProgress = null;
       try {
         persistedProgress = await this.db.getBook(book.id);
@@ -162,29 +145,22 @@ export class ReaderUI {
       // Update document title with book name
       document.title = `${book.title} - BooksWithMusic`;
       
-      console.log('📋 Rendering chapter list...');
       this.renderChapterList();
       
-      console.log('📄 Loading chapter:', this.currentChapterIndex);
       await this.loadChapter(this.currentChapterIndex, { pageInChapter: this.currentPageInChapter, preservePage: true });
 
       // Setup event listeners
-      console.log('⚡ Setting up event listeners...');
       this.setupEventListeners();
 
-      // Initialize music in the background so reader/settings feel instant
-      console.log('🎵 Initializing music manager (async)...');
+      // Initialize music in the background
       this._musicInitPromise = this.musicManager
         .initialize(book.id, this.chapters)
-        .then(() => console.log('✓ Music manager ready'))
-        .catch((e) => console.warn('Music manager init failed:', e));
+        .catch((e) => console.warn('Music init failed:', e));
       
-      console.log('✅ Reader initialized successfully');
+      console.log('✓ Reader ready');
       
-      // Note: Initial chapter music will be triggered from main.js
-      // after music panel listener is registered AND music manager is ready
     } catch (error) {
-      console.error('❌ Error initializing reader:', error);
+      console.error('❌ Reader init failed:', error);
       alert('Failed to load book: ' + error.message);
       window.location.href = '/';
     }
@@ -246,149 +222,272 @@ export class ReaderUI {
     return emojiMap[mood] || '🎵';
   }
 
+  setupEventListeners() {
+    // Navigation buttons
+    const prevBtn = document.getElementById('prev-chapter');
+    const nextBtn = document.getElementById('next-chapter');
+
+    prevBtn?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await this.goToPreviousPage();
+    });
+
+    nextBtn?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await this.goToNextPage();
+    });
+
+    // Toggle chapters sidebar
+    const toggleChaptersBtn = document.getElementById('toggle-chapters');
+    toggleChaptersBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const sidebar = document.getElementById('chapter-nav');
+      if (sidebar) {
+        // Toggle hidden class for desktop, show class for mobile
+        sidebar.classList.toggle('hidden');
+        sidebar.classList.toggle('show');
+      }
+    });
+
+    // Fullscreen toggle
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    fullscreenBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleFullscreen();
+    });
+
+    // Keyboard navigation (combined handler)
+    document.addEventListener('keydown', (e) => {
+      // Ignore if user is typing in an input field
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Fullscreen shortcuts
+      if (e.key === 'F11' || e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        this.toggleFullscreen();
+        return;
+      }
+
+      // Navigation shortcuts
+      switch(e.key) {
+        case 'ArrowLeft':
+        case 'PageUp':
+          e.preventDefault();
+          this.goToPreviousPage();
+          break;
+        case 'ArrowRight':
+        case 'PageDown':
+        case ' ': // Spacebar
+          e.preventDefault();
+          this.goToNextPage();
+          break;
+        case 'Home':
+          e.preventDefault();
+          this.loadChapter(0, { pageInChapter: 1 });
+          break;
+        case 'End':
+          e.preventDefault();
+          this.loadChapter(this.chapters.length - 1, { pageInChapter: 1 });
+          break;
+      }
+    });
+
+    // Touch/swipe navigation for mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      this.handleSwipe();
+    }, { passive: true });
+
+    this.handleSwipe = () => {
+      const swipeThreshold = 50; // minimum distance for swipe
+      const diff = touchStartX - touchEndX;
+
+      if (Math.abs(diff) > swipeThreshold) {
+        if (diff > 0) {
+          // Swiped left - go to next page
+          this.goToNextPage();
+        } else {
+          // Swiped right - go to previous page
+          this.goToPreviousPage();
+        }
+      }
+    };
+
+    // Listen for page density changes from settings
+    window.addEventListener('pageDensityChanged', async (e) => {
+      const newDensity = e.detail.charsPerPage;
+      console.log('📏 Page density changed to:', newDensity);
+      
+      // Update internal setting
+      this.charsPerPage = newDensity;
+      
+      // Clear cached pages for all chapters (force re-split)
+      this.chapterPages = {};
+      
+      // Re-split and reload current chapter
+      if (this.currentChapterIndex >= 0 && this.chapters.length > 0) {
+        console.log('🔄 Reloading chapter with new page density...');
+        await this.loadChapter(this.currentChapterIndex, { 
+          pageInChapter: this.currentPageInChapter, 
+          preservePage: true 
+        });
+      }
+    });
+  }
+
   /**
    * Split chapter content into pages based on character count
    * Preserves HTML structure and breaks at natural boundaries
    */
   splitChapterIntoPages(chapterContent, chapterTitle) {
-    const pages = [];
-    const charsPerPage = this.charsPerPage;
-    
-    console.log('📄 Splitting chapter:', chapterTitle);
-    console.log('  Content length:', chapterContent.length, 'characters');
-    console.log('  Target chars per page:', charsPerPage);
-    
-    // Parse HTML to extract elements
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = chapterContent;
-    
-    // Get all actual content elements, not containers
-    // First, get paragraphs and headings (most common content)
-    let elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
-    
-    // If no paragraphs/headings, look for any divs with direct text content
-    if (elements.length === 0) {
-      const allDivs = Array.from(tempDiv.querySelectorAll('div'));
-      elements = allDivs.filter(div => {
-        // Keep divs that have direct text content (not just nested elements)
-        const hasDirectText = Array.from(div.childNodes).some(node => 
-          node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0
-        );
-        return hasDirectText;
-      });
-    }
-    
-    // If still nothing, try top-level children (but filter out large containers)
-    if (elements.length === 0) {
-      elements = Array.from(tempDiv.children).filter(el => {
-        const textLength = (el.textContent || '').trim().length;
-        const childCount = el.children.length;
-        // Skip if it's a huge container with lots of children (wrapper div)
-        return !(textLength > 10000 && childCount > 20);
-      });
-    }
-    
-    // Filter out empty elements
-    elements = elements.filter(el => {
-      const text = el.textContent?.trim() || '';
-      return text.length > 0;
-    });
-    
-    // Fallback: if no elements found, treat entire content as plain text
-    if (elements.length === 0) {
-      const textContent = tempDiv.textContent.trim();
-      if (textContent) {
-        console.warn('  ⚠️  No HTML elements found, using text content');
-        // Create a paragraph with the plain text content
-        const p = document.createElement('p');
-        p.textContent = textContent; // This safely handles all text
-        tempDiv.innerHTML = '';
-        tempDiv.appendChild(p);
-        elements = Array.from(tempDiv.children);
-      } else {
-        console.warn('  ⚠️  No content found at all');
-        elements = [];
-      }
-    }
-    
-    console.log('  Total elements:', elements.length);
-    
-    let currentPage = {
-      html: '',
-      charCount: 0
-    };
-    
-    // Add chapter title to first page
-    const titleHTML = `<h2 class="chapter-heading">${this.escapeHtml(chapterTitle)}</h2>`;
-    currentPage.html += titleHTML;
-    currentPage.charCount += chapterTitle.length;
-    
-    for (const element of elements) {
-      const elementHTML = element.outerHTML;
-      const elementText = element.textContent || '';
-      const elementChars = elementText.length;
+    try {
+      const pages = [];
+      const charsPerPage = this.charsPerPage;
       
-      // Check if adding this element would overflow the page
-      if (currentPage.charCount + elementChars > charsPerPage && currentPage.charCount > 0) {
-        // Current page is full, save it and start a new page
-        pages.push(currentPage.html);
-        currentPage = { html: '', charCount: 0 };
+      // Parse HTML to extract elements
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = chapterContent;
+      
+      // Get all actual content elements, not containers
+      // First, get paragraphs and headings (most common content)
+      let elements = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
+    
+      // If no paragraphs/headings, look for any divs with direct text content
+      if (elements.length === 0) {
+        const allDivs = Array.from(tempDiv.querySelectorAll('div'));
+        elements = allDivs.filter(div => {
+          // Keep divs that have direct text content (not just nested elements)
+          const hasDirectText = Array.from(div.childNodes).some(node => 
+            node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0
+          );
+          return hasDirectText;
+        });
+      }
+    
+      // If still nothing, try top-level children (but filter out large containers)
+      if (elements.length === 0) {
+        elements = Array.from(tempDiv.children).filter(el => {
+          const textLength = (el.textContent || '').trim().length;
+          const childCount = el.children.length;
+          // Skip if it's a huge container with lots of children (wrapper div)
+          return !(textLength > 10000 && childCount > 20);
+        });
+      }
+    
+      // Filter out empty elements
+      elements = elements.filter(el => {
+        const text = el.textContent?.trim() || '';
+        return text.length > 0;
+      });
+    
+      // Fallback: if no elements found, treat entire content as plain text
+      if (elements.length === 0) {
+        const textContent = tempDiv.textContent.trim();
+        if (textContent) {
+          // Create a paragraph with the plain text content
+          const p = document.createElement('p');
+          p.textContent = textContent; // This safely handles all text
+          tempDiv.innerHTML = '';
+          tempDiv.appendChild(p);
+          elements = Array.from(tempDiv.children);
+        } else {
+          elements = [];
+        }
+      }
+      
+      let currentPage = {
+        html: '',
+        charCount: 0
+      };
+      
+      // Add chapter title to first page
+      const titleHTML = `<h2 class="chapter-heading">${this.escapeHtml(chapterTitle)}</h2>`;
+      currentPage.html += titleHTML;
+      currentPage.charCount += chapterTitle.length;
+      
+      for (const element of elements) {
+        const elementHTML = element.outerHTML;
+        const elementText = element.textContent || '';
+        const elementChars = elementText.length;
         
-        // Now check if this element itself is too large for one page
-        if (elementChars > charsPerPage) {
-          // Split large paragraphs by sentences
-          if (element.tagName === 'P') {
-            const sentences = this._splitIntoSentences(elementText);
-            let paragraphBuffer = '';
-            
-            for (const sentence of sentences) {
-              if (currentPage.charCount + paragraphBuffer.length + sentence.length > charsPerPage && currentPage.charCount > 0) {
-                // Save current page with accumulated paragraph
-                if (paragraphBuffer) {
-                  currentPage.html += `<p>${paragraphBuffer}</p>`;
-                  currentPage.charCount += paragraphBuffer.length;
+        // Check if adding this element would overflow the page
+        if (currentPage.charCount + elementChars > charsPerPage && currentPage.charCount > 0) {
+          // Current page is full, save it and start a new page
+          pages.push(currentPage.html);
+          currentPage = { html: '', charCount: 0 };
+          
+          // Now check if this element itself is too large for one page
+          if (elementChars > charsPerPage) {
+            // Split large paragraphs by sentences
+            if (element.tagName === 'P') {
+              const sentences = this._splitIntoSentences(elementText);
+              let paragraphBuffer = '';
+              
+              for (const sentence of sentences) {
+                if (currentPage.charCount + paragraphBuffer.length + sentence.length > charsPerPage && currentPage.charCount > 0) {
+                  // Save current page with accumulated paragraph
+                  if (paragraphBuffer) {
+                    currentPage.html += `<p>${paragraphBuffer}</p>`;
+                    currentPage.charCount += paragraphBuffer.length;
+                  }
+                  pages.push(currentPage.html);
+                  currentPage = { html: '', charCount: 0 };
+                  paragraphBuffer = sentence;
+                } else {
+                  paragraphBuffer += (paragraphBuffer ? ' ' : '') + sentence;
                 }
-                pages.push(currentPage.html);
-                currentPage = { html: '', charCount: 0 };
-                paragraphBuffer = sentence;
-              } else {
-                paragraphBuffer += (paragraphBuffer ? ' ' : '') + sentence;
               }
-            }
-            
-            // Add remaining paragraph content to current page
-            if (paragraphBuffer) {
-              currentPage.html += `<p>${paragraphBuffer}</p>`;
-              currentPage.charCount += paragraphBuffer.length;
+              
+              // Add remaining paragraph content to current page
+              if (paragraphBuffer) {
+                currentPage.html += `<p>${paragraphBuffer}</p>`;
+                currentPage.charCount += paragraphBuffer.length;
+              }
+            } else {
+              // Non-paragraph large element - add as is on its own page
+              pages.push(elementHTML);
+              currentPage = { html: '', charCount: 0 };
             }
           } else {
-            // Non-paragraph large element - add as is on its own page
-            pages.push(elementHTML);
-            currentPage = { html: '', charCount: 0 };
+            // Element fits on a page, add to the new page
+            currentPage.html += elementHTML;
+            currentPage.charCount += elementChars;
           }
         } else {
-          // Element fits on a page, add to the new page
+          // Element fits on current page, add it
           currentPage.html += elementHTML;
           currentPage.charCount += elementChars;
         }
-      } else {
-        // Element fits on current page, add it
-        currentPage.html += elementHTML;
-        currentPage.charCount += elementChars;
       }
+      
+      // Add remaining content as final page
+      if (currentPage.html.trim()) {
+        pages.push(currentPage.html);
+      }
+      
+      // Ensure at least one page
+      const finalPages = pages.length > 0 ? pages : ['<p>Empty chapter</p>'];
+      
+      return finalPages;
+    } catch (error) {
+      console.error(`❌ Error splitting chapter "${chapterTitle}":`, error);
+      console.error('Stack trace:', error.stack);
+      // Return a fallback page with error message
+      return [`<div class="error-page">
+        <h2>Error Loading Chapter</h2>
+        <p>Failed to split chapter "${this.escapeHtml(chapterTitle)}" into pages.</p>
+        <p>${this.escapeHtml(error.message)}</p>
+      </div>`];
     }
-    
-    // Add remaining content as final page
-    if (currentPage.html.trim()) {
-      pages.push(currentPage.html);
-    }
-    
-    // Ensure at least one page
-    const finalPages = pages.length > 0 ? pages : ['<p>Empty chapter</p>'];
-    console.log('  ✓ Created', finalPages.length, 'pages');
-    console.log('  Page lengths:', finalPages.map(p => p.length).join(', '));
-    
-    return finalPages;
   }
 
   /**
@@ -401,197 +500,189 @@ export class ReaderUI {
   }
 
   async loadChapter(index, { pageInChapter = 1, preservePage = false } = {}) {
-    if (index < 0 || index >= this.chapters.length) {
-      console.error('❌ Invalid chapter index:', index, '(total chapters:', this.chapters.length, ')');
-      return;
+    try {
+      if (index < 0 || index >= this.chapters.length) {
+        console.error('❌ Invalid chapter index:', index, '(total chapters:', this.chapters.length, ')');
+        return;
+      }
+
+      console.log(`📖 Loading chapter ${index + 1}/${this.chapters.length}`);
+      this.currentChapterIndex = index;
+      const chapter = this.chapters[index];
+      
+      if (!chapter) {
+        throw new Error(`Chapter ${index} not found in chapters array`);
+      }
+      
+      const layoutToken = ++this._chapterLayoutToken;
+      
+      // Store chapter shift points for music management
+      this.currentChapterShiftPoints = null;
+
+      // Apply page width settings
+      const { pageWidth, pageGap } = this._getPageMetrics();
+      document.documentElement.style.setProperty('--page-width', `${pageWidth}px`);
+      document.documentElement.style.setProperty('--page-gap', `${pageGap}px`);
+
+      // Check if we already have pages for this chapter
+      if (!this.chapterPages[index]) {
+        this.chapterPages[index] = this.splitChapterIntoPages(
+          chapter.content,
+          chapter.title
+        );
+        console.log(`✓ Split into ${this.chapterPages[index].length} pages`);
+      }
+      
+      // Update pages count
+      const totalPagesInChapter = this.chapterPages[index].length;
+      this.pagesPerChapter[index] = totalPagesInChapter;
+      
+      // Set page number (clamp to valid range)
+      this.currentPageInChapter = preservePage 
+        ? Math.min(Math.max(1, pageInChapter), totalPagesInChapter)
+        : 1;
+      
+      // Render current page
+      this.renderCurrentPage();
+
+      // Update UI
+      document.title = `${this.currentBook.title} - BooksWithMusic`;
+      
+      // Update progress indicators
+      const currentChapterEl = document.getElementById('current-chapter');
+      const totalChaptersEl = document.getElementById('total-chapters');
+      if (currentChapterEl) currentChapterEl.textContent = index + 1;
+      if (totalChaptersEl) totalChaptersEl.textContent = this.chapters.length;
+
+      // Update chapter list
+      document.querySelectorAll('.chapter-item').forEach((item, i) => {
+        item.classList.toggle('active', i === index);
+      });
+
+      // Update navigation buttons
+      this._updateNavButtons();
+
+      // Save progress
+      await this.saveProgress();
+      
+      // Analyze chapter sections for intelligent music switching
+      await this._analyzeChapterSections(index);
+
+      // Update page numbers
+      this.currentPage = this.calculateCurrentPageNumber();
+      this.totalPages = this.calculateTotalPages();
+      this.updatePageIndicator();
+    } catch (error) {
+      console.error(`❌ Error loading chapter ${index}:`, error);
+      console.error('Stack trace:', error.stack);
+      this.showToast(`Failed to load chapter: ${error.message}`, 'error');
     }
-
-    console.log(`📖 Loading chapter ${index + 1}/${this.chapters.length}`);
-    this.currentChapterIndex = index;
-    const chapter = this.chapters[index];
-    
-    // Debug: Check chapter content
-    console.log('  Chapter title:', chapter.title);
-    console.log('  Chapter content length:', chapter.content?.length || 0);
-    console.log('  Chapter content preview:', chapter.content?.substring(0, 200) || 'NO CONTENT');
-    
-    const layoutToken = ++this._chapterLayoutToken;
-    
-    // Store chapter shift points for music management
-    this.currentChapterShiftPoints = null;
-
-    // Apply page width settings
-    const { pageWidth, pageGap } = this._getPageMetrics();
-    document.documentElement.style.setProperty('--page-width', `${pageWidth}px`);
-    document.documentElement.style.setProperty('--page-gap', `${pageGap}px`);
-
-    // Check if we already have pages for this chapter
-    if (!this.chapterPages[index]) {
-      console.log(`📄 Splitting chapter ${index} into pages...`);
-      this.chapterPages[index] = this.splitChapterIntoPages(
-        chapter.content,
-        chapter.title
-      );
-      console.log(`✓ Chapter ${index} split into ${this.chapterPages[index].length} pages`);
-    }
-    
-    // Update pages count
-    const totalPagesInChapter = this.chapterPages[index].length;
-    this.pagesPerChapter[index] = totalPagesInChapter;
-    
-    // Set page number (clamp to valid range)
-    this.currentPageInChapter = preservePage 
-      ? Math.min(Math.max(1, pageInChapter), totalPagesInChapter)
-      : 1;
-    
-    // Render current page
-    this.renderCurrentPage();
-
-    // Update UI
-    document.title = `${this.currentBook.title} - BooksWithMusic`;
-    
-    // Update progress indicators
-    const currentChapterEl = document.getElementById('current-chapter');
-    const totalChaptersEl = document.getElementById('total-chapters');
-    if (currentChapterEl) currentChapterEl.textContent = index + 1;
-    if (totalChaptersEl) totalChaptersEl.textContent = this.chapters.length;
-
-    // Update chapter list
-    document.querySelectorAll('.chapter-item').forEach((item, i) => {
-      item.classList.toggle('active', i === index);
-    });
-
-    // Update navigation buttons
-    this._updateNavButtons();
-
-    // Save progress
-    await this.saveProgress();
-    
-    // Analyze chapter sections for intelligent music switching
-    await this._analyzeChapterSections(index);
-
-    // Note: Music manager update happens in main.js after music panel is ready
-    // We don't call onChapterChange here to avoid duplicate initialization
-    
-    // Update page numbers
-    this.currentPage = this.calculateCurrentPageNumber();
-    this.totalPages = this.calculateTotalPages();
-    this.updatePageIndicator();
   }
 
   /**
    * Render only the current page (not the whole chapter)
    */
   renderCurrentPage() {
-    console.log('🎨 renderCurrentPage() called');
-    const contentEl = document.getElementById('reader-content');
-    if (!contentEl) {
-      console.error('❌ #reader-content element NOT FOUND in DOM!');
-      return;
-    }
-    console.log('  ✓ #reader-content element exists');
-    
-    const pages = this.chapterPages[this.currentChapterIndex];
-    if (!pages || pages.length === 0) {
-      console.warn('⚠️ No pages found for chapter:', this.currentChapterIndex);
-      console.warn('  Available chapters:', Object.keys(this.chapterPages));
-      return;
-    }
-    console.log('  ✓ Pages array exists with', pages.length, 'pages');
-    
-    const pageIndex = this.currentPageInChapter - 1;
-    const pageContent = pages[pageIndex] || pages[0];
-    
-    console.log('📄 Rendering page data:', {
-      chapterIndex: this.currentChapterIndex,
-      pageInChapter: this.currentPageInChapter,
-      pageIndex: pageIndex,
-      totalPagesInChapter: pages.length,
-      contentLength: pageContent?.length || 0,
-      contentPreview: (pageContent?.substring(0, 150) || 'NO CONTENT').replace(/\n/g, ' ')
-    });
-    
-    // Safety check - if pageContent is empty/undefined, show error page
-    if (!pageContent || pageContent.trim().length === 0) {
-      console.error('❌ Page content is empty!');
+    try {
+      const contentEl = document.getElementById('reader-content');
+      if (!contentEl) {
+        console.warn('⚠️ #reader-content not found');
+        return;
+      }
+      
+      const pages = this.chapterPages[this.currentChapterIndex];
+      if (!pages || pages.length === 0) {
+        console.warn('⚠️ No pages found for chapter:', this.currentChapterIndex);
+        return;
+      }
+      
+      const pageIndex = this.currentPageInChapter - 1;
+      const pageContent = pages[pageIndex] || pages[0];
+      
+      // Safety check - if pageContent is empty/undefined, show error page
+      if (!pageContent || pageContent.trim().length === 0) {
+        console.error('❌ Page content is empty!');
+        contentEl.innerHTML = `
+          <div class="page-container">
+            <div class="page-viewport">
+              <div class="chapter-text" style="color: red; padding: 50px;">
+                <h2>Error: Empty Page Content</h2>
+                <p>Chapter ${this.currentChapterIndex + 1}, Page ${this.currentPageInChapter}</p>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      // Render page
       contentEl.innerHTML = `
         <div class="page-container">
           <div class="page-viewport">
-            <div class="chapter-text" style="color: red; padding: 50px;">
-              <h2>Error: Empty Page Content</h2>
-              <p>Chapter ${this.currentChapterIndex + 1}, Page ${this.currentPageInChapter}</p>
-              <p>Content length: ${pageContent?.length || 0}</p>
-              <p>Check browser console for details.</p>
+            <div class="chapter-text" data-page="${this.currentPageInChapter}" data-chapter="${this.currentChapterIndex}">
+              ${pageContent}
             </div>
           </div>
         </div>
       `;
-      return;
-    }
-    
-    // Render page
-    contentEl.innerHTML = `
-      <div class="page-container">
-        <div class="page-viewport">
-          <div class="chapter-text" data-page="${this.currentPageInChapter}" data-chapter="${this.currentChapterIndex}">
-            ${pageContent}
-          </div>
-        </div>
-      </div>
-    `;
-    
-    console.log('  ✓ HTML set via innerHTML');
-    
-    // Verify DOM rendering
-    setTimeout(() => {
-      const textEl = document.querySelector('.chapter-text');
-      if (textEl) {
-        console.log('  ✓ .chapter-text rendered successfully');
-        console.log('    - innerHTML length:', textEl.innerHTML.length);
-        console.log('    - textContent length:', textEl.textContent.length);
-        console.log('    - Computed styles:', {
-          display: window.getComputedStyle(textEl).display,
-          visibility: window.getComputedStyle(textEl).visibility,
-          opacity: window.getComputedStyle(textEl).opacity,
-          color: window.getComputedStyle(textEl).color
-        });
-      } else {
-        console.error('  ❌ .chapter-text NOT found in DOM after rendering!');
-      }
-    }, 50);
-    
-    // Handle internal EPUB links
-    contentEl.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', (e) => {
-        const href = link.getAttribute('href');
-        
-        // If it's an anchor link (internal page navigation)
-        if (href && href.startsWith('#')) {
-          // Allow it to work naturally
-          return;
-        }
-        
-        // If it's a chapter reference or internal epub link
-        if (href && !href.startsWith('http')) {
-          e.preventDefault();
-          // Try to find matching chapter
-          const chapterIndex = this.findChapterByHref(href);
-          if (chapterIndex !== -1) {
-            this.loadChapter(chapterIndex);
+      
+      // Handle internal EPUB links
+      contentEl.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', (e) => {
+          const href = link.getAttribute('href');
+          
+          // If it's an anchor link (internal page navigation)
+          if (href && href.startsWith('#')) {
+            // Allow it to work naturally
+            return;
           }
-          return;
-        }
-        
-        // Prevent external links from navigating away
-        if (href && (href.startsWith('http') || href.startsWith('//'))) {
-          e.preventDefault();
-          console.log('External link blocked:', href);
-        }
+          
+          // If it's a chapter reference or internal epub link
+          if (href && !href.startsWith('http')) {
+            e.preventDefault();
+            // Try to find matching chapter
+            const chapterIndex = this.findChapterByHref(href);
+            if (chapterIndex !== -1) {
+              this.loadChapter(chapterIndex);
+            }
+            return;
+          }
+          
+          // Prevent external links from navigating away
+          if (href && (href.startsWith('http') || href.startsWith('//'))) {
+            e.preventDefault();
+            console.log('External link blocked:', href);
+          }
+        });
       });
-    });
 
-    // Update progress indicator (called from loadChapter, not here)
-    this.updatePageIndicator();
+      // Update progress indicator
+      this.updatePageIndicator();
+    } catch (error) {
+      console.error('❌ Error rendering page:', error);
+      console.error('Context:', {
+        chapterIndex: this.currentChapterIndex,
+        pageInChapter: this.currentPageInChapter,
+        totalChapters: this.chapters?.length
+      });
+      console.error('Stack trace:', error.stack);
+      
+      // Show error in UI
+      const contentEl = document.getElementById('reader-content');
+      if (contentEl) {
+        contentEl.innerHTML = `
+          <div class="page-container">
+            <div class="page-viewport">
+              <div class="chapter-text" style="color: red; padding: 50px;">
+                <h2>Error Rendering Page</h2>
+                <p>${this.escapeHtml(error.message)}</p>
+                <button onclick="location.reload()">Reload Page</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
   }
   
   async _analyzeChapterSections(chapterIndex) {
@@ -620,12 +711,9 @@ export class ReaderUI {
     // Store shift points for this chapter
     this.currentChapterShiftPoints = sectionAnalysis;
     
-    console.log(`📊 Chapter ${chapterIndex + 1} section analysis:`, sectionAnalysis);
-    console.log(`   Total shifts: ${sectionAnalysis.totalShifts}`);
-    if (sectionAnalysis.shiftPoints.length > 0) {
-      console.log(`   Shift points:`, sectionAnalysis.shiftPoints.map(sp => 
-        `Page ${sp.page}: ${sp.fromMood} → ${sp.toMood}`
-      ).join(', '));
+    // Log summary only
+    if (sectionAnalysis.totalShifts > 0) {
+      console.log(`📊 Ch.${chapterIndex + 1}: ${sectionAnalysis.totalShifts} mood shifts detected`);
     }
   }
 
@@ -668,6 +756,16 @@ export class ReaderUI {
       }
     }
     return -1;
+  }
+
+  getCurrentPageWidth() {
+    // Get page width from settings, or use default
+    try {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      return settings.pageWidth || 800; // Default to 800 if not set
+    } catch {
+      return 800;
+    }
   }
 
   _getPageMetrics() {
@@ -819,28 +917,35 @@ export class ReaderUI {
   }
 
   async saveProgress() {
-    if (!this.currentBook) return;
-
-    const progress = this.totalPages > 0 ? (this.currentPage / this.totalPages) * 100 : 0;
-    await this.db.updateBook(this.currentBook.id, {
-      currentChapter: this.currentChapterIndex,
-      currentPageInChapter: this.currentPageInChapter,
-      progress: progress
-    });
-
-    // Keep sessionStorage in sync so refresh resumes correctly even before DB reads.
     try {
-      const raw = sessionStorage.getItem('currentBook');
-      if (raw) {
-        const stored = JSON.parse(raw);
-        if (stored?.id === this.currentBook.id) {
-          stored.currentChapter = this.currentChapterIndex;
-          stored.currentPageInChapter = this.currentPageInChapter;
-          sessionStorage.setItem('currentBook', JSON.stringify(stored));
+      if (!this.currentBook) return;
+
+      const progress = this.totalPages > 0 ? (this.currentPage / this.totalPages) * 100 : 0;
+      await this.db.updateBook(this.currentBook.id, {
+        currentChapter: this.currentChapterIndex,
+        currentPageInChapter: this.currentPageInChapter,
+        progress: progress
+      });
+
+      // Keep sessionStorage in sync so refresh resumes correctly even before DB reads.
+      try {
+        const raw = sessionStorage.getItem('currentBook');
+        if (raw) {
+          const stored = JSON.parse(raw);
+          if (stored?.id === this.currentBook.id) {
+            stored.currentChapter = this.currentChapterIndex;
+            stored.currentPageInChapter = this.currentPageInChapter;
+            sessionStorage.setItem('currentBook', JSON.stringify(stored));
+          }
         }
+      } catch (error) {
+        console.warn('⚠️ Failed to sync sessionStorage:', error.message);
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('❌ Error saving progress:', error);
+      console.error('Book ID:', this.currentBook?.id);
+      console.error('Stack trace:', error.stack);
+      // Don't show toast for save errors as they happen frequently
     }
   }
 
@@ -910,205 +1015,118 @@ export class ReaderUI {
   }
 
   async goToNextPage() {
-    // Prevent multiple simultaneous flips
-    if (this._isFlipping) return;
-    
-    const currentPagesInChapter = this.pagesPerChapter[this.currentChapterIndex] || 1;
-    
-    console.log('🔍 goToNextPage Debug:');
-    console.log('  Current page:', this.currentPageInChapter);
-    console.log('  Total pages in chapter:', currentPagesInChapter);
-    console.log('  Chapter pages array:', this.chapterPages[this.currentChapterIndex]?.length);
-    
-    // If at end of chapter, go to next chapter
-    if (this.currentPageInChapter >= currentPagesInChapter) {
-      console.log('  → At end of chapter, going to next chapter');
-      await this.goToNextChapter();
-      return;
+    try {
+      // Prevent multiple simultaneous flips
+      if (this._isFlipping) return;
+      
+      const currentPagesInChapter = this.pagesPerChapter[this.currentChapterIndex] || 1;
+      
+      // If at end of chapter, go to next chapter
+      if (this.currentPageInChapter >= currentPagesInChapter) {
+        await this.goToNextChapter();
+        return;
+      }
+      
+      await this._flipToPage(this.currentPageInChapter + 1, 'next');
+    } catch (error) {
+      console.error('❌ Error navigating to next page:', error);
+      console.error('Stack trace:', error.stack);
+      this._isFlipping = false; // Reset flip lock
+      this.showToast('Failed to navigate to next page', 'error');
     }
-    
-    console.log('  → Flipping to page', this.currentPageInChapter + 1);
-    await this._flipToPage(this.currentPageInChapter + 1, 'next');
   }
 
   async goToPreviousPage() {
-    // Prevent multiple simultaneous flips
-    if (this._isFlipping) return;
-    
-    // If at start of chapter, go to previous chapter
-    if (this.currentPageInChapter <= 1) {
-      await this.goToPreviousChapter();
-      return;
+    try {
+      // Prevent multiple simultaneous flips
+      if (this._isFlipping) return;
+      
+      // If at start of chapter, go to previous chapter
+      if (this.currentPageInChapter <= 1) {
+        await this.goToPreviousChapter();
+        return;
+      }
+      
+      await this._flipToPage(this.currentPageInChapter - 1, 'prev');
+    } catch (error) {
+      console.error('❌ Error navigating to previous page:', error);
+      console.error('Stack trace:', error.stack);
+      this._isFlipping = false; // Reset flip lock
+      this.showToast('Failed to navigate to previous page', 'error');
     }
-    
-    await this._flipToPage(this.currentPageInChapter - 1, 'prev');
   }
 
   async goToNextChapter() {
-    if (this.currentChapterIndex >= this.chapters.length - 1) return;
-    if (this._isFlipping) return;
-    
-    this.currentPageInChapter = 1;
-    await this.loadChapter(this.currentChapterIndex + 1, { pageInChapter: 1, preservePage: false });
-    
-    // Update music for new chapter (only if music manager is ready)
-    if (this.musicManager && this._musicInitPromise) {
-      await this._musicInitPromise;
-      this.musicManager.onChapterChange(this.currentChapterIndex);
+    try {
+      if (this.currentChapterIndex >= this.chapters.length - 1) return;
+      if (this._isFlipping) return;
+      
+      this.currentPageInChapter = 1;
+      await this.loadChapter(this.currentChapterIndex + 1, { pageInChapter: 1, preservePage: false });
+      
+      // Update music for new chapter (only if music manager is ready)
+      if (this.musicManager && this._musicInitPromise) {
+        await this._musicInitPromise;
+        this.musicManager.onChapterChange(this.currentChapterIndex);
+      }
+    } catch (error) {
+      console.error('❌ Error navigating to next chapter:', error);
+      console.error('Stack trace:', error.stack);
+      this.showToast('Failed to load next chapter', 'error');
     }
   }
 
   async goToPreviousChapter() {
-    if (this.currentChapterIndex <= 0) return;
-    if (this._isFlipping) return;
-    
-    const prevChapterIndex = this.currentChapterIndex - 1;
-    // Jump to the end of the previous chapter; page is clamped after pagination.
-    await this.loadChapter(prevChapterIndex, { pageInChapter: Number.MAX_SAFE_INTEGER, preservePage: true });
-    
-    // Update music for new chapter (only if music manager is ready)
-    if (this.musicManager && this._musicInitPromise) {
-      await this._musicInitPromise;
-      this.musicManager.onChapterChange(this.currentChapterIndex);
-    }
-  }
-
-  setupEventListeners() {
-    document.getElementById('prev-chapter')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.scrollPage('up');
-    });
-
-    document.getElementById('next-chapter')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.scrollPage('down');
-    });
-    
-    // Restore chapter sidebar state from localStorage
-    const sidebar = document.getElementById('chapter-nav');
-    const isHidden = localStorage.getItem('chapters-sidebar-hidden') === 'true';
-    if (sidebar && isHidden) {
-      sidebar.classList.add('hidden');
-    }
-    
-    // Toggle chapters sidebar
-    document.getElementById('toggle-chapters')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.toggleChaptersSidebar();
-    });
-
-    // Arrow key navigation
-    document.addEventListener('keydown', (e) => {
-      // Ignore if user is typing in an input
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    try {
+      if (this.currentChapterIndex <= 0) return;
+      if (this._isFlipping) return;
       
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        this.scrollPage('up');
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        this.scrollPage('down');
-      } else if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault();
-        this.toggleFullscreen();
+      const prevChapterIndex = this.currentChapterIndex - 1;
+      // Jump to the end of the previous chapter; page is clamped after pagination.
+      await this.loadChapter(prevChapterIndex, { pageInChapter: Number.MAX_SAFE_INTEGER, preservePage: true });
+      
+      // Update music for new chapter (only if music manager is ready)
+      if (this.musicManager && this._musicInitPromise) {
+        await this._musicInitPromise;
+        this.musicManager.onChapterChange(this.currentChapterIndex);
       }
-    });
-
-    // Fullscreen toggle
-    document.getElementById('fullscreen-btn')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.toggleFullscreen();
-    });
-
-    // Listen for fullscreen changes to update button
-    document.addEventListener('fullscreenchange', () => this.updateFullscreenButton());
-    document.addEventListener('webkitfullscreenchange', () => this.updateFullscreenButton());
-
-    // Best-effort flush of progress when leaving the page.
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) this.saveProgress().catch(() => {});
-    });
-    window.addEventListener('beforeunload', () => {
-      this.saveProgress().catch(() => {});
-    });
-
-    // React immediately to settings changes that affect layout
-    if (!this._layoutChangedHandler) {
-      let pending = false;
-      this._layoutChangedHandler = () => {
-        if (pending) return;
-        pending = true;
-        requestAnimationFrame(async () => {
-          pending = false;
-          // Re-split current chapter into pages with new settings
-          delete this.chapterPages[this.currentChapterIndex];
-          await this.loadChapter(this.currentChapterIndex, { 
-            pageInChapter: this.currentPageInChapter, 
-            preservePage: true 
-          });
-          this._updateNavButtons();
-        });
-      };
-      window.addEventListener('reader:layoutChanged', this._layoutChangedHandler);
+    } catch (error) {
+      console.error('❌ Error navigating to previous chapter:', error);
+      console.error('Stack trace:', error.stack);
+      this.showToast('Failed to load previous chapter', 'error');
     }
-
-    // Listen for page density changes
-    window.addEventListener('pageDensityChanged', (e) => {
-      this.charsPerPage = e.detail.charsPerPage;
-      console.log('📊 Page density changed to:', this.charsPerPage, 'chars/page');
-      // Clear all cached pages and re-split current chapter
-      this.chapterPages = {};
-      this.loadChapter(this.currentChapterIndex, { 
-        pageInChapter: 1, // Reset to page 1 since pagination changed
-        preservePage: false 
-      });
-    });
   }
+
+  // UI Control Methods
 
   toggleFullscreen() {
-    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      // Enter fullscreen
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen();
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
+    try {
+      if (!document.fullscreenElement) {
+        // Enter fullscreen
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn('Could not enter fullscreen:', err);
+          this.showToast('Fullscreen not supported', 'error');
+        });
+      } else {
+        // Exit fullscreen
+        document.exitFullscreen().catch(err => {
+          console.warn('Could not exit fullscreen:', err);
+        });
       }
-    } else {
-      // Exit fullscreen
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      }
+    } catch (error) {
+      console.error('❌ Error toggling fullscreen:', error);
+      this.showToast('Fullscreen failed', 'error');
     }
   }
+
+  // Utility methods for UI feedback
   
-  toggleChaptersSidebar() {
-    const sidebar = document.getElementById('chapter-nav');
-    if (sidebar) {
-      sidebar.classList.toggle('hidden');
-      // Save preference
-      const isHidden = sidebar.classList.contains('hidden');
-      localStorage.setItem('chapters-sidebar-hidden', isHidden);
-    }
-  }
-
-  updateFullscreenButton() {
-    const btn = document.getElementById('fullscreen-btn');
-    if (btn) {
-      const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
-      btn.textContent = isFullscreen ? '⛶' : '⛶';
-      btn.title = isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)';
-    }
-  }
-
   escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
-
+  
   showLoading(message) {
     const overlay = document.getElementById('loading-overlay');
     const messageEl = document.getElementById('loading-message');
@@ -1126,31 +1144,31 @@ export class ReaderUI {
   }
 
   showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-
-    setTimeout(() => {
-      toast.classList.add('show');
-    }, 10);
-
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
-  }
-
-  getCurrentPageWidth() {
-    // Get current page width from settings or default
     try {
-      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings'));
-      return settings?.pageWidth || 650;
-    } catch {
-      return 650;
+      const container = document.getElementById('toast-container');
+      if (!container) {
+        console.warn('Toast container not found');
+        return;
+      }
+
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      
+      container.appendChild(toast);
+      
+      // Trigger animation
+      setTimeout(() => toast.classList.add('show'), 10);
+      
+      // Remove after 3 seconds
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    } catch (error) {
+      console.error('❌ Error showing toast:', error);
+      // Fallback to console if toast fails
+      console.log(`[${type.toUpperCase()}] ${message}`);
     }
   }
 }

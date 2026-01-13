@@ -141,6 +141,16 @@ export class MusicPanelUI {
       this.hidePanel();
     });
 
+    // Music tab switching - REMOVED (now using two-column layout)
+    // const musicTabs = document.querySelectorAll('.music-tab');
+    // musicTabs.forEach(tab => {
+    //   tab.addEventListener('click', (e) => {
+    //     e.preventDefault();
+    //     const targetTab = tab.dataset.tab;
+    //     this.switchMusicTab(targetTab);
+    //   });
+    // });
+
     // Playback controls
     document.getElementById('play-pause')?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -329,6 +339,20 @@ export class MusicPanelUI {
       panel.classList.remove('show');
     }
   }
+
+  // switchMusicTab method - REMOVED (no longer needed with two-column layout)
+  // switchMusicTab(tabName) {
+  //   document.querySelectorAll('.music-tab').forEach(tab => {
+  //     tab.classList.remove('active');
+  //   });
+  //   document.querySelectorAll('.tab-pane').forEach(pane => {
+  //     pane.classList.remove('active');
+  //   });
+  //   const selectedTab = document.querySelector(`.music-tab[data-tab="${tabName}"]`);
+  //   const selectedPane = document.getElementById(`tab-${tabName}`);
+  //   if (selectedTab) selectedTab.classList.add('active');
+  //   if (selectedPane) selectedPane.classList.add('active');
+  // }
 
   renderPlaylist() {
     const playlistEl = document.getElementById('playlist-tracks');

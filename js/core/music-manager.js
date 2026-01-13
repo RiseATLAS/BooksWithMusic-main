@@ -17,81 +17,60 @@ export class MusicManager {
   }
 
   async initialize(bookId, chapters) {
-    this.currentBookId = bookId;
-    this.chapters = chapters;
-    
-    // Load available tracks from API
-    await this.loadTracksFromAPI();
-    
-    // Check and report caching status
-    await this.verifyCaching();
-    
-    // Analyze book with AI to determine chapter-specific music
-    console.log('🤖 AI analyzing book for mood-based music selection...');
-    const book = { id: bookId, title: 'Current Book', chapters };
-    this.bookAnalysis = await this.aiProcessor.analyzeBook(book);
-    
-    // Generate mappings using available tracks
-    const mappings = this.aiProcessor.generateChapterMappings(
-      book,
-      this.bookAnalysis.chapterAnalyses,
-      this.availableTracks
-    );
-    
-    // Store mappings for quick lookup
-    mappings.forEach(mapping => {
-      this.chapterMappings[mapping.chapterId] = mapping;
-    });
-    
-    console.log(`✓ AI analysis complete. Book mood: ${this.bookAnalysis.bookProfile.dominantMood}`);
-    console.log(`♪ Available tracks: ${this.availableTracks.length}`);
+    try {
+      this.currentBookId = bookId;
+      this.chapters = chapters;
+      
+      // Load available tracks from API
+      await this.loadTracksFromAPI();
+      
+      // Check and report caching status
+      await this.verifyCaching();
+      
+      // Analyze book with AI to determine chapter-specific music
+      this.bookAnalysis = await this.aiProcessor.analyzeBook({ id: bookId, title: 'Current Book', chapters });
+      
+      // Generate mappings using available tracks
+      const mappings = this.aiProcessor.generateChapterMappings(
+        { id: bookId, title: 'Current Book', chapters },
+        this.bookAnalysis.chapterAnalyses,
+        this.availableTracks
+      );
+      
+      // Store mappings for quick lookup
+      mappings.forEach(mapping => {
+        this.chapterMappings[mapping.chapterId] = mapping;
+      });
+      
+      console.log(`✓ Music ready: ${this.availableTracks.length} tracks loaded`);
+    } catch (error) {
+      console.error('❌ Error initializing music manager:', error);
+      console.error('Stack trace:', error.stack);
+      // Continue with empty track list - app should still work without music
+      this.availableTracks = [];
+      this.bookAnalysis = null;
+    }
   }
 
   onChapterChange(chapterIndex) {
-    console.log('📖 onChapterChange called:', chapterIndex);
-    console.log('   Book analysis:', !!this.bookAnalysis);
-    console.log('   Chapters:', this.chapters?.length);
-    
     // Check if music manager is fully initialized
-    if (!this.bookAnalysis) {
-      console.log('⚠️ Music manager not yet initialized (no book analysis). Skipping...');
-      return;
-    }
-    
-    if (!this.chapters || !this.chapters[chapterIndex]) {
-      console.log('⚠️ Invalid chapter index or no chapters loaded');
+    if (!this.bookAnalysis || !this.chapters || !this.chapters[chapterIndex]) {
       return;
     }
     
     const chapter = this.chapters[chapterIndex];
-    if (!chapter) {
-      console.log('⚠️ Chapter not found at index:', chapterIndex);
-      return;
-    }
-    
     const analysis = this.bookAnalysis.chapterAnalyses?.[chapterIndex];
     const mapping = this.chapterMappings[chapter.id || chapter.title];
     
-    console.log('   Chapter:', chapter.title);
-    console.log('   Analysis:', analysis?.primaryMood);
-    console.log('   Mapping:', mapping?.trackTitle);
-    
     if (analysis && mapping) {
-      console.log(`🎵 Chapter ${chapterIndex + 1}: ${analysis.primaryMood} mood detected`);
-      console.log(`   ${mapping.trackCount} tracks queued: ${mapping.tracks?.map(t => t.trackTitle).join(', ') || 'None'}`);
-      console.log(`   Energy: ${analysis.energy}/5 | Tags: ${analysis.musicTags?.join(', ') || 'None'}`);
+      console.log(`🎵 Ch.${chapterIndex + 1}: ${analysis.primaryMood} (${mapping.trackCount} tracks)`);
       
       // Emit event that music panel can listen to
-      console.log('📡 Emitting chapterMusicChanged event');
-      console.log('   Event handlers:', this.eventHandlers);
       this.emit('chapterMusicChanged', {
         chapterIndex,
         analysis,
-        recommendedTracks: mapping.tracks || [] // Now sends multiple tracks
+        recommendedTracks: mapping.tracks || []
       });
-      console.log('✓ Event emitted');
-    } else {
-      console.log('⚠️ Missing analysis or mapping for this chapter');
     }
   }
 
@@ -116,7 +95,6 @@ export class MusicManager {
 
   async cacheTrack(track) {
     try {
-      console.log(`💾 Caching track: ${track.title} (${track.id})`);
       const response = await fetch(track.url);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -125,7 +103,6 @@ export class MusicManager {
       await this.cache.cacheTrack(track.id, blob);
       track.cached = true;
       await this.db.addTrack(track);
-      console.log(`✅ Track cached successfully: ${track.title}`);
     } catch (error) {
       console.error(`❌ Failed to cache track ${track.title}:`, error);
       track.cached = false;
@@ -133,7 +110,6 @@ export class MusicManager {
   }
 
   async verifyCaching() {
-    console.log('🔍 Verifying track caching status...');
     let cachedCount = 0;
     let totalTracks = this.availableTracks.length;
     
@@ -147,15 +123,7 @@ export class MusicManager {
       }
     }
     
-    console.log(`💾 Cache Status: ${cachedCount}/${totalTracks} tracks cached (${Math.round(cachedCount/totalTracks*100)}%)`);
-    
-    if (cachedCount === 0) {
-      console.log('💡 Tracks will be cached automatically when played');
-    } else if (cachedCount < totalTracks * 0.5) {
-      console.log('💡 More tracks will be cached as you play them');
-    } else {
-      console.log('✅ Good caching coverage for smooth playback!');
-    }
+    console.log(`💾 Cache: ${cachedCount}/${totalTracks} tracks (${Math.round(cachedCount/totalTracks*100)}%)`);
     
     // Emit caching status for UI updates
     this.emit('cachingStatusUpdated', { 
@@ -216,40 +184,47 @@ export class MusicManager {
   }
   
   async loadTracksFromAPI() {
-    console.log('🎼 MusicManager: Starting track loading...');
     try {
+      // Check cache first
+      const cachedTracks = await this._loadFromCache();
+      if (cachedTracks && cachedTracks.length > 0) {
+        console.log(`✓ Loaded ${cachedTracks.length} tracks from cache`);
+        this.availableTracks = cachedTracks;
+        return;
+      }
+
       // Check if Freesound API key is configured
       const freesoundKey = localStorage.getItem('freesound_api_key');
       
       if (!freesoundKey) {
-        console.warn('⚠️ No API key configured. Music features disabled.');
-        console.log('🔑 Get a free API key from: https://freesound.org/apiv2/apply/');
+        console.log('⚠️ No API key - using demo tracks');
         this.availableTracks = [];
         return;
       }
       
-      console.log('✓ Using Freesound API');
+      console.log('🎵 Loading tracks from Freesound (this may take a moment)...');
       
-      // Try to load tracks from API - fetch more for variety
+      // Load tracks in parallel with Promise.allSettled for better performance
       const moods = ['calm', 'epic', 'romantic', 'mysterious', 'adventure', 'dark', 'tense', 'joyful', 'peaceful', 'magical'];
-      console.log('🎵 Fetching tracks for', moods.length, 'moods:', moods.join(', '));
       
-      for (const mood of moods) {
-        try {
-          console.log(`   Fetching ${mood} tracks...`);
-          const tracks = await this.musicAPI.getTracksForMood(mood, 15);
-          console.log(`   ✓ Got ${tracks.length} ${mood} tracks`);
-          this.availableTracks.push(...tracks);
-        } catch (error) {
-          console.warn(`   ❌ Could not fetch ${mood} tracks:`, error);
+      const trackPromises = moods.map(mood => 
+        this.musicAPI.getTracksForMood(mood, 15)
+          .catch(error => {
+            console.warn(`Failed to load ${mood} tracks:`, error.message);
+            return [];
+          })
+      );
+      
+      const results = await Promise.allSettled(trackPromises);
+      
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+          this.availableTracks.push(...result.value);
         }
-      }
-      
-      console.log('📊 Total tracks loaded:', this.availableTracks.length);
+      });
       
       if (this.availableTracks.length === 0) {
-        console.warn('⚠️ No tracks loaded from API.');
-        console.log('💡 Tip: Try adjusting your search tags or check API status');
+        console.warn('⚠️ No tracks loaded from API');
       } else {
         // Remove duplicates
         const seen = new Set();
@@ -259,13 +234,43 @@ export class MusicManager {
           return true;
         });
         
-        console.log(`✓ Loaded ${this.availableTracks.length} unique music tracks`);
-        console.log('   Track IDs:', this.availableTracks.map(t => t.id).join(', '));
+        console.log(`✓ ${this.availableTracks.length} tracks loaded from API`);
+        
+        // Cache tracks for future use
+        await this._saveToCache(this.availableTracks);
       }
     } catch (error) {
-      console.error('Error loading tracks from API:', error);
-      // Fallback to empty array if API fails
+      console.error('Error loading tracks:', error);
       this.availableTracks = [];
+    }
+  }
+
+  async _loadFromCache() {
+    try {
+      const cached = localStorage.getItem('music_tracks_cache');
+      if (cached) {
+        const data = JSON.parse(cached);
+        // Cache expires after 24 hours
+        if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+          return data.tracks;
+        }
+      }
+    } catch (error) {
+      console.warn('Error loading tracks from cache:', error);
+    }
+    return null;
+  }
+
+  async _saveToCache(tracks) {
+    try {
+      const cacheData = {
+        tracks: tracks,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('music_tracks_cache', JSON.stringify(cacheData));
+      console.log('✓ Tracks cached to localStorage');
+    } catch (error) {
+      console.warn('Error saving tracks to cache:', error);
     }
   }
 

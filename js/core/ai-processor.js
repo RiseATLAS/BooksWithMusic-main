@@ -1,29 +1,44 @@
 export class AIProcessor {
   constructor() {
+    // Enhanced keyword system: Scene/Environment takes priority over emotions
+    this.sceneKeywords = {
+      // Locations and settings (high priority for music selection)
+      dark: ['dungeon', 'cave', 'underground', 'basement', 'crypt', 'tomb', 'cemetery', 'graveyard', 'ruins', 'abandoned', 'desolate', 'wasteland', 'swamp', 'marsh', 'fog', 'mist', 'storm', 'thunder', 'rain', 'night', 'midnight', 'darkness', 'shadow'],
+      mysterious: ['library', 'archive', 'laboratory', 'chamber', 'corridor', 'hallway', 'passage', 'tunnel', 'maze', 'labyrinth', 'mansion', 'castle', 'tower', 'ancient', 'secret room', 'hidden door', 'vault', 'temple', 'shrine'],
+      romantic: ['garden', 'rose', 'flower', 'meadow', 'sunset', 'starlight', 'moonlight', 'beach', 'candlelight', 'fireplace', 'balcony', 'terrace', 'vineyard', 'lakeside', 'riverside'],
+      sad: ['grave', 'funeral', 'hospital', 'bedside', 'empty room', 'deserted', 'ruins', 'ashes', 'wreckage', 'ruins'],
+      epic: ['battlefield', 'arena', 'throne room', 'war', 'army', 'legion', 'fortress', 'citadel', 'siege', 'mountain peak', 'chasm', 'volcano', 'cliffside'],
+      peaceful: ['meadow', 'garden', 'brook', 'stream', 'clearing', 'glade', 'cottage', 'village', 'sunrise', 'dawn', 'morning', 'spring', 'blossom', 'birdsong'],
+      tense: ['edge', 'cliff', 'precipice', 'narrow', 'tight space', 'chase', 'pursuit', 'alley', 'rooftop', 'ledge', 'bridge', 'crossing'],
+      joyful: ['festival', 'celebration', 'marketplace', 'fair', 'tavern', 'inn', 'plaza', 'square', 'dancing', 'feast', 'banquet'],
+      adventure: ['wilderness', 'frontier', 'jungle', 'desert', 'mountain', 'ocean', 'sea', 'ship', 'voyage', 'expedition', 'trail', 'path', 'forest', 'woods'],
+      magical: ['enchanted', 'spellbound', 'crystal', 'portal', 'realm', 'dimension', 'ethereal plane', 'floating', 'glowing', 'shimmering', 'aurora', 'celestial']
+    };
+    
     this.moodKeywords = {
-      dark: ['dark', 'shadow', 'night', 'death', 'fear', 'terror', 'horror', 'nightmare', 'evil', 'sinister', 'grim', 'haunted', 'ominous', 'doom', 'dread', 'foreboding', 'ghastly', 'macabre', 'menace', 'sinister', 'bleak', 'murky', 'obscure', 'dim', 'gloomy', 'dismal', 'black', 'twilight', 'abyss', 'void', 'cursed', 'wicked', 'malevolent', 'diabolical'],
-      mysterious: ['mystery', 'secret', 'hidden', 'unknown', 'enigma', 'puzzle', 'strange', 'curious', 'cryptic', 'obscure', 'arcane', 'esoteric', 'riddle', 'cipher', 'veiled', 'shadowy', 'elusive', 'ambiguous', 'perplexing', 'baffling', 'mystifying', 'intrigue', 'conspiracy', 'covert', 'clandestine', 'whisper', 'clue', 'investigate', 'probe'],
-      romantic: ['love', 'heart', 'kiss', 'romance', 'passion', 'desire', 'affection', 'tender', 'embrace', 'caress', 'intimate', 'adore', 'cherish', 'devoted', 'sweetheart', 'beloved', 'longing', 'yearning', 'amorous', 'enchanted', 'smitten', 'enamored', 'infatuated', 'crush', 'flutter', 'blush', 'gentle touch', 'gaze', 'whisper'],
-      sad: ['sad', 'tear', 'cry', 'grief', 'sorrow', 'loss', 'melancholy', 'lonely', 'despair', 'mourn', 'weep', 'anguish', 'heartbreak', 'misery', 'woe', 'lament', 'regret', 'remorse', 'bitter', 'forlorn', 'desolate', 'empty', 'hopeless', 'depressed', 'downcast', 'crestfallen', 'dejected', 'somber', 'mournful', 'wistful'],
-      epic: ['battle', 'war', 'fight', 'hero', 'victory', 'triumph', 'glory', 'legend', 'conquest', 'valor', 'courage', 'brave', 'warrior', 'champion', 'clash', 'siege', 'army', 'combat', 'duel', 'sword', 'shield', 'charge', 'assault', 'defend', 'fortress', 'kingdom', 'empire', 'destiny', 'fate', 'prophecy', 'epic', 'grand', 'mighty', 'powerful'],
-      peaceful: ['peace', 'calm', 'quiet', 'gentle', 'soft', 'serene', 'tranquil', 'rest', 'still', 'placid', 'soothing', 'harmonious', 'relaxed', 'content', 'ease', 'comfort', 'silence', 'hush', 'meditation', 'contemplation', 'breeze', 'meadow', 'garden', 'stream', 'dawn', 'sunset', 'twilight', 'lullaby', 'whisper'],
-      tense: ['danger', 'threat', 'tension', 'suspense', 'anxiety', 'worry', 'nervous', 'alert', 'urgent', 'panic', 'alarm', 'warning', 'crisis', 'peril', 'risk', 'hazard', 'jeopardy', 'precarious', 'uncertain', 'edge', 'brink', 'pressure', 'strain', 'stress', 'chase', 'pursue', 'flee', 'escape', 'trap', 'cornered'],
-      joyful: ['happy', 'joy', 'laugh', 'smile', 'cheer', 'delight', 'merry', 'celebration', 'jubilant', 'ecstatic', 'elated', 'gleeful', 'festive', 'exuberant', 'radiant', 'blissful', 'thrilled', 'excited', 'euphoric', 'jovial', 'cheerful', 'bright', 'sunny', 'playful', 'grin', 'giggle', 'dance', 'sing', 'rejoice'],
-      adventure: ['journey', 'quest', 'explore', 'discover', 'travel', 'adventure', 'expedition', 'voyage', 'trek', 'wander', 'roam', 'pioneer', 'frontier', 'horizon', 'path', 'trail', 'map', 'compass', 'uncharted', 'wild', 'wilderness', 'mountain', 'sea', 'forest', 'cave', 'treasure', 'seek', 'search', 'brave', 'bold'],
-      magical: ['magic', 'spell', 'wizard', 'witch', 'enchant', 'mystical', 'supernatural', 'sorcery', 'conjure', 'incantation', 'potion', 'wand', 'charm', 'hex', 'rune', 'ritual', 'ethereal', 'otherworldly', 'fairy', 'dragon', 'phoenix', 'unicorn', 'mythical', 'legendary', 'arcane', 'divine', 'celestial', 'enchanted', 'bewitched', 'spellbound']
+      dark: ['death', 'fear', 'terror', 'horror', 'nightmare', 'evil', 'sinister', 'grim', 'haunted', 'ominous', 'doom', 'dread', 'foreboding', 'menace', 'wicked', 'malevolent'],
+      mysterious: ['mystery', 'secret', 'hidden', 'unknown', 'enigma', 'puzzle', 'strange', 'curious', 'cryptic', 'riddle', 'clue', 'investigate'],
+      romantic: ['love', 'heart', 'kiss', 'romance', 'passion', 'desire', 'affection', 'tender', 'embrace', 'caress', 'intimate', 'adore', 'cherish', 'devoted', 'beloved', 'longing'],
+      sad: ['sad', 'tear', 'cry', 'grief', 'sorrow', 'loss', 'melancholy', 'lonely', 'despair', 'mourn', 'weep', 'anguish', 'heartbreak', 'misery'],
+      epic: ['battle', 'fight', 'hero', 'victory', 'triumph', 'glory', 'legend', 'conquest', 'valor', 'courage', 'brave', 'warrior', 'champion'],
+      peaceful: ['peace', 'calm', 'quiet', 'gentle', 'soft', 'serene', 'tranquil', 'rest', 'still', 'soothing', 'harmonious', 'relaxed', 'content'],
+      tense: ['danger', 'threat', 'tension', 'suspense', 'anxiety', 'worry', 'nervous', 'alert', 'urgent', 'panic', 'alarm', 'warning', 'crisis', 'peril'],
+      joyful: ['happy', 'joy', 'laugh', 'smile', 'cheer', 'delight', 'merry', 'celebration', 'jubilant', 'ecstatic', 'gleeful', 'festive', 'thrilled'],
+      adventure: ['journey', 'quest', 'explore', 'discover', 'travel', 'adventure', 'expedition', 'voyage', 'trek', 'wander', 'pioneer', 'seek'],
+      magical: ['magic', 'spell', 'wizard', 'witch', 'enchant', 'mystical', 'supernatural', 'sorcery', 'conjure', 'incantation', 'potion', 'charm']
     };
 
     this.moodToMusicMapping = {
-      dark: { tags: ['dark', 'atmospheric', 'tense'], energy: 4, tempo: 'slow' },
-      mysterious: { tags: ['mysterious', 'ambient', 'ethereal'], energy: 3, tempo: 'moderate' },
-      romantic: { tags: ['romantic', 'gentle', 'classical'], energy: 2, tempo: 'slow' },
-      sad: { tags: ['melancholy', 'piano', 'emotional'], energy: 2, tempo: 'slow' },
-      epic: { tags: ['epic', 'orchestral', 'dramatic'], energy: 5, tempo: 'upbeat' },
-      peaceful: { tags: ['calm', 'peaceful', 'nature'], energy: 1, tempo: 'slow' },
-      tense: { tags: ['suspenseful', 'intense', 'dramatic'], energy: 4, tempo: 'moderate' },
-      joyful: { tags: ['uplifting', 'cheerful', 'bright'], energy: 4, tempo: 'upbeat' },
-      adventure: { tags: ['adventurous', 'energetic', 'inspiring'], energy: 4, tempo: 'upbeat' },
-      magical: { tags: ['mystical', 'ethereal', 'ambient'], energy: 3, tempo: 'moderate' }
+      dark: { tags: ['dark', 'atmospheric', 'tense', 'ominous'], energy: 4, tempo: 'slow' },
+      mysterious: { tags: ['mysterious', 'ambient', 'ethereal', 'enigmatic'], energy: 3, tempo: 'moderate' },
+      romantic: { tags: ['romantic', 'gentle', 'piano', 'strings'], energy: 2, tempo: 'slow' },
+      sad: { tags: ['melancholy', 'piano', 'emotional', 'somber'], energy: 2, tempo: 'slow' },
+      epic: { tags: ['epic', 'orchestral', 'dramatic', 'powerful'], energy: 5, tempo: 'upbeat' },
+      peaceful: { tags: ['calm', 'peaceful', 'ambient', 'nature'], energy: 1, tempo: 'slow' },
+      tense: { tags: ['suspenseful', 'intense', 'dramatic', 'tense'], energy: 4, tempo: 'moderate' },
+      joyful: { tags: ['uplifting', 'cheerful', 'bright', 'happy'], energy: 4, tempo: 'upbeat' },
+      adventure: { tags: ['adventurous', 'energetic', 'inspiring', 'cinematic'], energy: 4, tempo: 'upbeat' },
+      magical: { tags: ['mystical', 'ethereal', 'ambient', 'fantasy'], energy: 3, tempo: 'moderate' }
     };
   }
 
@@ -31,15 +46,15 @@ export class AIProcessor {
    * Analyze entire book and generate mood profiles for all chapters
    */
   async analyzeBook(book) {
-    console.log(`AI Processor: Analyzing book "${book.title}" with ${book.chapters.length} chapters...`);
+    console.log(`🤖 AI analyzing "${book.title}" (${book.chapters.length} chapters)...`);
     
     const chapterAnalyses = book.chapters.map((chapter, index) => {
-      const analysis = this.analyzeChapter(chapter, book);
-      console.log(`Chapter ${index + 1} (${chapter.title}): ${analysis.primaryMood} - Energy: ${analysis.energy}/5`);
-      return analysis;
+      return this.analyzeChapter(chapter, book);
     });
 
     const bookProfile = this._generateBookProfile(book, chapterAnalyses);
+    
+    console.log(`✓ Mood: ${bookProfile.dominantMood} | Energy: ${bookProfile.averageEnergy}/5`);
     
     return {
       bookProfile,
@@ -50,50 +65,88 @@ export class AIProcessor {
 
   /**
    * Analyze a single chapter's content for mood and vibe
+   * Prioritizes scene/environment over emotional keywords
    */
   analyzeChapter(chapter, book) {
-    const text = `${chapter.title} ${chapter.content}`.toLowerCase();
-    const moodScores = {};
+    try {
+      const text = `${chapter.title} ${chapter.content}`.toLowerCase();
+      const sceneScores = {};
+      const moodScores = {};
 
-    // Score each mood based on keyword frequency
-    for (const [mood, keywords] of Object.entries(this.moodKeywords)) {
-      let score = 0;
-      for (const keyword of keywords) {
-        const regex = new RegExp(`\\b${keyword}\\w*\\b`, 'gi');
-        const matches = text.match(regex);
-        score += matches ? matches.length : 0;
+      // PRIORITY 1: Score scene/environment keywords (weighted 3x)
+      for (const [mood, keywords] of Object.entries(this.sceneKeywords)) {
+        let score = 0;
+        for (const keyword of keywords) {
+          const regex = new RegExp(`\\b${keyword}\\w*\\b`, 'gi');
+          const matches = text.match(regex);
+          score += matches ? matches.length * 3 : 0; // 3x weight for scene keywords
+        }
+        sceneScores[mood] = score;
       }
-      moodScores[mood] = score;
+
+      // PRIORITY 2: Score emotional mood keywords (weighted 1x)
+      for (const [mood, keywords] of Object.entries(this.moodKeywords)) {
+        let score = 0;
+        for (const keyword of keywords) {
+          const regex = new RegExp(`\\b${keyword}\\w*\\b`, 'gi');
+          const matches = text.match(regex);
+          score += matches ? matches.length : 0;
+        }
+        moodScores[mood] = score;
+      }
+
+      // Combine scores: scene takes priority, mood adds nuance
+      const combinedScores = {};
+      for (const mood in sceneScores) {
+        combinedScores[mood] = sceneScores[mood] + (moodScores[mood] || 0);
+      }
+
+      // Find primary and secondary moods based on combined scores
+      const sortedMoods = Object.entries(combinedScores)
+        .sort((a, b) => b[1] - a[1])
+        .filter(([_, score]) => score > 0);
+
+      const primaryMood = sortedMoods[0]?.[0] || 'peaceful';
+      const secondaryMood = sortedMoods[1]?.[0];
+
+      // Get music properties for primary mood
+      const musicProps = this.moodToMusicMapping[primaryMood] || this.moodToMusicMapping.peaceful;
+
+      // Combine tags from primary and secondary moods
+      const tags = [...musicProps.tags];
+      if (secondaryMood && this.moodToMusicMapping[secondaryMood]) {
+        tags.push(...this.moodToMusicMapping[secondaryMood].tags.slice(0, 2));
+      }
+
+      return {
+        chapterId: chapter.id || chapter.title,
+        chapterTitle: chapter.title,
+        primaryMood,
+        secondaryMood,
+        sceneScore: sceneScores[primaryMood] || 0,
+        moodScore: moodScores[primaryMood] || 0,
+        musicTags: [...new Set(tags)], // Remove duplicates
+        energy: musicProps.energy,
+        tempo: musicProps.tempo,
+        recommendedGenres: this._getGenresForMood(primaryMood)
+      };
+    } catch (error) {
+      console.error(`❌ Error analyzing chapter "${chapter.title}":`, error);
+      console.error('Stack trace:', error.stack);
+      // Return default peaceful mood on error
+      return {
+        chapterId: chapter.id || chapter.title,
+        chapterTitle: chapter.title,
+        primaryMood: 'peaceful',
+        secondaryMood: null,
+        sceneScore: 0,
+        moodScore: 0,
+        musicTags: ['calm', 'peaceful', 'ambient'],
+        energy: 1,
+        tempo: 'slow',
+        recommendedGenres: ['ambient', 'calm']
+      };
     }
-
-    // Find primary and secondary moods
-    const sortedMoods = Object.entries(moodScores)
-      .sort((a, b) => b[1] - a[1])
-      .filter(([_, score]) => score > 0);
-
-    const primaryMood = sortedMoods[0]?.[0] || 'peaceful';
-    const secondaryMood = sortedMoods[1]?.[0];
-
-    // Get music properties for primary mood
-    const musicProps = this.moodToMusicMapping[primaryMood] || this.moodToMusicMapping.peaceful;
-
-    // Combine tags from primary and secondary moods
-    const tags = [...musicProps.tags];
-    if (secondaryMood && this.moodToMusicMapping[secondaryMood]) {
-      tags.push(...this.moodToMusicMapping[secondaryMood].tags.slice(0, 1));
-    }
-
-    return {
-      chapterId: chapter.id || chapter.title,
-      chapterTitle: chapter.title,
-      primaryMood,
-      secondaryMood,
-      moodScores,
-      musicTags: [...new Set(tags)], // Remove duplicates
-      energy: musicProps.energy,
-      tempo: musicProps.tempo,
-      recommendedGenres: this._getGenresForMood(primaryMood)
-    };
   }
 
   /**
@@ -197,6 +250,7 @@ export class AIProcessor {
   /**
    * Select multiple tracks (1-5) for a chapter based on its length
    * Tracks are ordered sequentially for page progression
+   * Enhanced scoring based on scene/environment match
    */
   selectTracksForChapter(chapterAnalysis, availableTracks, chapter) {
     if (!availableTracks || availableTracks.length === 0) {
@@ -221,30 +275,45 @@ export class AIProcessor {
       trackCount = 5;
     }
 
-    console.log(`   Chapter "${chapter.title}": ${wordCount} words → ${trackCount} tracks`);
-
-    // Score all tracks
+    // Score all tracks with enhanced algorithm
     const scoredTracks = availableTracks.map(track => {
       let score = 0;
       const trackTags = track.tags || [];
       const chapterTags = chapterAnalysis.musicTags || [];
 
-      // Check tag overlap
-      chapterTags.forEach(tag => {
-        if (trackTags.some(trackTag => trackTag.includes(tag) || tag.includes(trackTag))) {
-          score += 3;
-        }
+      // PRIORITY 1: Tag matching (most important)
+      chapterTags.forEach(chapterTag => {
+        trackTags.forEach(trackTag => {
+          const chapterTagLower = chapterTag.toLowerCase();
+          const trackTagLower = trackTag.toLowerCase();
+          
+          // Exact match
+          if (chapterTagLower === trackTagLower) {
+            score += 5;
+          }
+          // Partial match (one contains the other)
+          else if (chapterTagLower.includes(trackTagLower) || trackTagLower.includes(chapterTagLower)) {
+            score += 3;
+          }
+        });
       });
 
-      // Match energy level
+      // PRIORITY 2: Energy level match (important for pacing)
       if (track.energy) {
         const energyDiff = Math.abs(track.energy - chapterAnalysis.energy);
-        score += (5 - energyDiff);
+        // Perfect match: +5, Close: +3, Off by 2: +1, Off by 3+: 0
+        if (energyDiff === 0) {
+          score += 5;
+        } else if (energyDiff === 1) {
+          score += 3;
+        } else if (energyDiff === 2) {
+          score += 1;
+        }
       }
 
-      // Match tempo
+      // PRIORITY 3: Tempo match (helpful for atmosphere)
       if (track.tempo && track.tempo === chapterAnalysis.tempo) {
-        score += 2;
+        score += 3;
       }
 
       return { track, score };

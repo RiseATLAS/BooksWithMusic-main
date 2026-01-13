@@ -36,12 +36,9 @@ export class MusicAPI {
    * @param {number} limit - Number of results
    */
   async searchTracks(tags, limit = 10) {
-    console.log('🔍 MusicAPI: Searching tracks with tags:', tags, 'limit:', limit);
     const cacheKey = `${tags.join(',')}_${limit}`;
     if (this.cache.has(cacheKey)) {
-      const cached = this.cache.get(cacheKey);
-      console.log('✓ Using cached tracks:', cached.length);
-      return cached;
+      return this.cache.get(cacheKey);
     }
 
     try {
@@ -49,28 +46,19 @@ export class MusicAPI {
 
       // Try Freesound (best for music)
       if (this.freesoundKey) {
-        console.log('🔑 Using Freesound API key');
         tracks = await this.searchFreesound(tags, limit);
-        console.log('✓ Freesound returned:', tracks.length, 'tracks');
-      } else {
-        console.log('⚠️ No API key configured');
       }
 
       // Fallback to free sources if no results
       if (tracks.length === 0) {
-        console.log('📚 Loading fallback tracks...');
         tracks = await this.getFallbackTracks(tags, limit);
-        console.log('✓ Fallback tracks:', tracks.length);
       }
 
       this.cache.set(cacheKey, tracks);
-      console.log('✓ Total tracks found:', tracks.length);
       return tracks;
     } catch (error) {
       console.error('❌ Error fetching music:', error);
-      const fallbacks = await this.getFallbackTracks(tags, limit);
-      console.log('✓ Emergency fallback tracks:', fallbacks.length);
-      return fallbacks;
+      return await this.getFallbackTracks(tags, limit);
     }
   }
 
@@ -83,9 +71,6 @@ export class MusicAPI {
     // Check if we're rate limited
     const now = Date.now();
     if (now < this.rateLimitedUntil) {
-      const waitTime = Math.ceil((this.rateLimitedUntil - now) / 1000);
-      console.warn(`⏳ Rate limited by Freesound. Waiting ${waitTime}s before retry...`);
-      console.log('   Using fallback tracks instead.');
       return [];
     }
 
@@ -93,7 +78,6 @@ export class MusicAPI {
     const timeSinceLastRequest = now - this.lastRequestTime;
     if (timeSinceLastRequest < this.minRequestInterval) {
       const delay = this.minRequestInterval - timeSinceLastRequest;
-      console.log(`⏱️ Delaying request by ${delay}ms to respect rate limits`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
@@ -107,18 +91,16 @@ export class MusicAPI {
       
       if (response.status === 429) {
         // Rate limited - wait 60 seconds before trying again
-        console.warn('⚠️ Freesound API rate limit (429). Pausing requests for 60s.');
+        console.warn('⚠️ Freesound API rate limit reached. Using cached/fallback tracks.');
         this.rateLimitedUntil = Date.now() + 60000;
         return [];
       }
       
       if (!response.ok) {
-        console.warn('Freesound API error:', response.status);
         return [];
       }
 
       const data = await response.json();
-      console.log('Freesound response:', data.count, 'results found');
       
       return data.results.map(sound => ({
         id: `freesound_${sound.id}`,
@@ -172,14 +154,7 @@ export class MusicAPI {
    * Returns tracks organized by mood that are guaranteed to work
    */
   async getFallbackTracks(tags, limit) {
-    console.log('📚 Using fallback demo tracks (for development/testing)');
-    
     // Demo tracks using royalty-free music from various sources
-    // These are example URLs - in production, you'd want to:
-    // 1. Host your own royalty-free music, OR
-    // 2. Use a music API with proper credentials, OR
-    // 3. Let users upload their own music files
-    
     const demoTracks = [
       {
         id: 'demo_calm_1',
@@ -235,7 +210,6 @@ export class MusicAPI {
     
     // Return filtered or all if no matches
     const result = filtered.length > 0 ? filtered : demoTracks;
-    console.log(`✓ Returning ${result.length} demo tracks`);
     
     return result.slice(0, limit);
   }

@@ -16,43 +16,34 @@ class BooksWithMusicApp {
 
   async initialize() {
     try {
-      console.log('📚 BooksWithMusic initializing...');
       await this.db.initialize();
-      console.log('✓ Database initialized');
       
       // Check if we're on reader page
       if (window.location.pathname.includes('reader.html')) {
-        console.log('📖 Loading reader page...');
         await this.reader.initializeReader();
 
-        // Apply settings ASAP (music init happens in the background now)
+        // Apply settings ASAP
         this.settings.initialize();
         
         // Initialize music panel with reader's music manager
         this.musicPanel = new MusicPanelUI(this.db, this.reader.musicManager);
         this.musicPanel.initialize();
-        console.log('✓ Music panel ready');
         
-        // NOW trigger initial chapter music (after listener is registered)
-        console.log('🎵 Triggering initial chapter music...');
-        // Ensure async music init has finished before starting playback.
+        // Trigger initial chapter music
         if (this.reader._musicInitPromise) {
           await this.reader._musicInitPromise;
         }
         this.reader.musicManager.onChapterChange(this.reader.currentChapterIndex);
-        console.log('✓ Reader initialized');
       } else {
-        // Home page - no music panel needed
-        console.log('🏠 Loading home page...');
+        // Home page
         await this.library.initialize();
-        console.log('✓ Library initialized');
       }
       
       this.setupEventListeners();
       await this.registerServiceWorker();
-      console.log('✓ App ready!');
+      console.log('✓ App ready');
     } catch (error) {
-      console.error('❌ Initialization error:', error);
+      console.error('❌ Init error:', error);
       alert('Failed to initialize app. Check console for details.');
     }
   }

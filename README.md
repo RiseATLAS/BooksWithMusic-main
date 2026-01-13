@@ -1,5 +1,11 @@
 # BooksWithMusic 📚🎵
 
+> **📄 Documentation Policy:** This project maintains exactly 4 MD files:
+> - **README.md** - User guide, features, and getting started (this file)
+> - **CHANGELOG.md** - All updates and fixes
+> - **DEVELOPMENT.md** - Technical architecture and dev guide
+> - **QUICK_REFERENCE.md** - Keyboard shortcuts and quick tips
+
 A modern web-based EPUB reader with **AI-powered music selection** that automatically pairs instrumental music with your reading experience. The app analyzes each chapter's mood and selects appropriate background music to enhance your reading.
 
 ## 🚀 Quick Start
@@ -106,12 +112,16 @@ The app analyzes chapter text and detects **10 mood types**:
 
 ### Display Settings
 - **Color Scheme**: Light, Dark, Sepia
-- **Fullscreen Mode**: F11 or ⛶ button
-- **Chapter Sidebar**: Toggle visibility
+- **Fullscreen Mode**: F11, 'f' key, or ⛶ button
+- **Chapter Sidebar**: Toggle visibility with ☰ button
 
 ### Music Settings
+- **Enable/Disable Background Music**: Toggle music on/off
+- **Auto-play Music**: Start playing automatically when opening a chapter
+- **Dynamic Page-Based Music Switching**: Automatically change tracks as you read based on mood shifts (can be disabled for chapter-only changes)
+- **Maximum Energy Level**: Limit music intensity (1=Very Calm to 5=All tracks)
 - **Volume Control**: 0% - 100%
-- **Crossfade Duration**: Smooth transitions between tracks
+- **Crossfade Duration**: Smooth transitions between tracks (1-10 seconds)
 - **API Configuration**: Add Freesound API key
 
 ## 🐛 Debugging

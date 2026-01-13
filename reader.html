@@ -50,18 +50,13 @@
             <!-- Side navigation -->
             <button id="prev-chapter" class="btn btn-secondary">←</button>
             <button id="next-chapter" class="btn btn-secondary">→</button>
-            
-            <!-- Progress indicator -->
-            <div class="progress-indicator">
-                <span id="current-chapter">1</span> / <span id="total-chapters">10</span>
-            </div>
         </div>
     </div>
 
     <!-- Music Panel -->
     <div id="music-panel" class="music-panel">
         <div class="music-header">
-            <h3><span class="icon">♫</span> Now Playing</h3>
+            <h3><span class="icon">♫</span> Music</h3>
             <button id="close-music-panel" class="btn-close">×</button>
         </div>
 
@@ -89,13 +84,76 @@
 
         <div class="volume-control">
             <span class="icon">♪</span>
-            <input type="range" id="volume-slider" min="0" max="100" value="70">
+            <input type="range" id="volume-slider" min="0" max="100" value="70" title="Volume">
             <span id="volume-value">70%</span>
         </div>
 
-        <div class="playlist">
-            <h4>Playlist</h4>
-            <div id="playlist-tracks" class="playlist-tracks"></div>
+        <!-- Two Column Layout: Settings + Playlist -->
+        <div class="music-content-layout">
+            <!-- Settings Column -->
+            <div class="music-settings-column">
+                <div class="music-settings-section">
+                    <h4>Music Settings</h4>
+                    
+                    <div class="setting-group">
+                        <label for="music-enabled-panel">
+                            <input type="checkbox" id="music-enabled-panel" checked>
+                            Enable Background Music
+                        </label>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="auto-play-panel">
+                            <input type="checkbox" id="auto-play-panel">
+                            Auto-play Music
+                        </label>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="page-based-music-switch">
+                            <input type="checkbox" id="page-based-music-switch" checked>
+                            Dynamic Page-Based Music Switching
+                            <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
+                                Automatically switch tracks as you read based on mood changes
+                            </small>
+                        </label>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="max-energy-level">
+                            Maximum Energy Level
+                            <small style="display: block; opacity: 0.7; font-weight: normal; margin-top: 0.25rem;">
+                                Limit music intensity (1=calm, 5=intense)
+                            </small>
+                        </label>
+                        <input type="range" id="max-energy-level" min="1" max="5" step="1" value="5">
+                        <span id="max-energy-value">5 (All)</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="crossfade-duration-panel">Crossfade Duration</label>
+                        <input type="range" id="crossfade-duration-panel" min="1" max="10" value="3">
+                        <span id="crossfade-value-panel">3s</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="freesound-key-panel">Freesound API Key</label>
+                        <input type="text" id="freesound-key-panel" placeholder="Enter your API key">
+                        <button id="save-freesound-key-panel" class="btn btn-primary" style="margin-top: 0.5rem;">Save Key</button>
+                        <small style="opacity: 0.7; display: block; margin-top: 0.5rem;">
+                            Get free key at <a href="https://freesound.org/apiv2/apply/" target="_blank" rel="noopener">freesound.org/apiv2/apply</a>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playlist Column -->
+            <div class="music-playlist-column">
+                <div class="playlist">
+                    <h4>Playlist</h4>
+                    <div id="playlist-tracks" class="playlist-tracks"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -118,8 +176,8 @@
 
             <div class="setting-group">
                 <label for="font-size">Font Size</label>
-                <input type="range" id="font-size" min="12" max="24" value="16">
-                <span id="font-size-value">16px</span>
+                <input type="range" id="font-size" min="12" max="24" value="18">
+                <span id="font-size-value">18px</span>
             </div>
 
             <div class="setting-group">
@@ -148,8 +206,8 @@
 
             <div class="setting-group">
                 <label for="page-width">Page Width</label>
-                <input type="range" id="page-width" min="300" max="1200" step="50" value="650">
-                <span id="page-width-value">650px</span>
+                <input type="range" id="page-width" min="300" max="2000" step="50" value="800">
+                <span id="page-width-value">800px</span>
             </div>
 
             <div class="setting-group">
@@ -159,7 +217,7 @@
                         Adjust how much text fits on each page
                     </small>
                 </label>
-                <input type="range" id="page-density" min="600" max="3000" step="100" value="1200">
+                <input type="range" id="page-density" min="600" max="10000" step="100" value="1200">
                 <span id="page-density-value">1200 chars (~200 words)</span>
             </div>
 
@@ -189,7 +247,7 @@
             </div>
 
             <div class="setting-group">
-                <label for="page-warmth">Page Warmth (Yellowness)</label>
+                <label for="page-warmth">Page Warmth</label>
                 <input type="range" id="page-warmth" min="0" max="100" value="0">
                 <span id="page-warmth-value">0%</span>
             </div>
@@ -210,42 +268,6 @@
                     Show Chapter Title
                 </label>
             </div>
-
-            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
-            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Music Settings</h3>
-
-            <div class="setting-group">
-                <label for="music-enabled">
-                    <input type="checkbox" id="music-enabled" checked>
-                    Enable Background Music
-                </label>
-            </div>
-
-            <div class="setting-group">
-                <label for="auto-play">
-                    <input type="checkbox" id="auto-play">
-                    Auto-play Music
-                </label>
-            </div>
-
-            <div class="setting-group">
-                <label for="crossfade-duration">Crossfade Duration</label>
-                <input type="range" id="crossfade-duration" min="1" max="10" value="3">
-                <span id="crossfade-value">3s</span>
-            </div>
-
-            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
-            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">API Configuration</h3>
-
-            <div class="setting-group">
-                <label for="freesound-key">Freesound API Key (Recommended)</label>
-                <input type="text" id="freesound-key" placeholder="Enter your Freesound API key">
-                <button id="save-freesound-key" class="btn btn-primary">Save Key</button>
-                <small style="opacity: 0.7; display: block; margin-top: 0.5rem;">
-                    Get free key at <a href="https://freesound.org/apiv2/apply/" target="_blank">freesound.org/apiv2/apply</a>
-                </small>
-            </div>
-
 
         </div>
     </div>

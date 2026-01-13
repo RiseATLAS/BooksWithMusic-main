@@ -11,6 +11,7 @@ export class BookLibrary {
 
   async initialize() {
     console.log('Initializing library...');
+    this.applyPageColorToLibrary(); // Apply saved page color setting
     this.setupImportButton();
     console.log('Import button setup complete');
     try {
@@ -19,6 +20,53 @@ export class BookLibrary {
     } catch (error) {
       console.error('Error loading books:', error);
       // Continue anyway - buttons should still work
+    }
+  }
+
+  applyPageColorToLibrary() {
+    try {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      const pageColor = settings.pageColor || 'white';
+      
+      const colorMap = {
+        'white': { bg: '#ffffff', text: '#1c1e21' },
+        'cream': { bg: '#f9f6ed', text: '#3c3022' },
+        'gray': { bg: '#e8e8e8', text: '#1c1e21' },
+        'black': { bg: '#000000', text: '#ffffff' }
+      };
+      
+      const colors = colorMap[pageColor] || colorMap['white'];
+      
+      // Apply to body and library view
+      document.body.style.backgroundColor = colors.bg;
+      document.body.style.color = colors.text;
+      
+      const libraryView = document.getElementById('library-view');
+      if (libraryView) {
+        libraryView.style.backgroundColor = colors.bg;
+        libraryView.style.color = colors.text;
+      }
+      
+      // Apply to library container (center section)
+      const libraryContainer = document.querySelector('.library-container');
+      if (libraryContainer) {
+        libraryContainer.style.backgroundColor = colors.bg;
+        libraryContainer.style.color = colors.text;
+      }
+      
+      // Apply to book cards
+      document.querySelectorAll('.book-card').forEach(card => {
+        card.style.backgroundColor = colors.bg;
+        card.style.color = colors.text;
+      });
+      
+      // Update CSS variables for consistency
+      document.documentElement.style.setProperty('--reader-bg', colors.bg);
+      document.documentElement.style.setProperty('--reader-text', colors.text);
+      document.documentElement.style.setProperty('--bg-secondary', colors.bg);
+      document.documentElement.style.setProperty('--text-primary', colors.text);
+    } catch (error) {
+      console.error('Error applying page color to library:', error);
     }
   }
 
@@ -85,9 +133,11 @@ export class BookLibrary {
       await this.loadBooks();
       
     } catch (error) {
-      console.error('Error importing book:', error);
+      console.error('❌ Error importing book:', file?.name);
+      console.error('Error details:', error);
+      console.error('Stack trace:', error.stack);
       this.hideLoading();
-      this.showToast('Error importing book', 'error');
+      this.showToast(`Failed to import book: ${error.message}`, 'error');
     }
   }
 

@@ -143,7 +143,7 @@ export class SettingsUI {
       this.saveSettings();
     });
 
-    // Page warmth / yellowness
+    // Page warmth
     const pageWarmthInput = document.getElementById('page-warmth');
     const pageWarmthValue = document.getElementById('page-warmth-value');
     pageWarmthInput?.addEventListener('input', (e) => {
@@ -259,7 +259,9 @@ export class SettingsUI {
           this.saveSettings();
         }
       } catch (error) {
-        console.error('Error loading settings:', error);
+        console.error('❌ Error loading settings from localStorage:', error);
+        console.error('Stack trace:', error.stack);
+        // Continue with default settings
       }
     }
 
@@ -329,7 +331,12 @@ export class SettingsUI {
   }
 
   saveSettings() {
-    localStorage.setItem('booksWithMusic-settings', JSON.stringify(this.settings));
+    // Ensure all settings including autoPlay are saved
+    const settingsToSave = {
+      ...this.settings,
+      autoPlay: this.settings.autoPlay || false
+    };
+    localStorage.setItem('booksWithMusic-settings', JSON.stringify(settingsToSave));
   }
 
   applySettings() {
@@ -401,52 +408,101 @@ export class SettingsUI {
   /**
    * Auto-calibrate page density based on current viewport and font settings
    * Calculates how many characters fit comfortably on one page
+   * Also calibrates optimal page width based on viewport
    */
   calibratePageDensity() {
     // Get current viewport dimensions
     const viewport = document.querySelector('.page-viewport');
     if (!viewport) {
-      alert('Please open a book first to calibrate page size.');
+      this.showToast('Please open a book first to calibrate page size.', 'error');
       return;
     }
 
     // Get computed styles
     const computedStyle = window.getComputedStyle(viewport);
-    const fontSize = parseFloat(computedStyle.fontSize || this.settings.fontSize);
-    const lineHeight = parseFloat(computedStyle.lineHeight || fontSize * this.settings.lineHeight);
+    const fontSize = parseFloat(computedStyle.fontSize) || this.settings.fontSize || 16;
     
-    // Get viewport dimensions (accounting for padding)
+    // Handle lineHeight - it can be "normal" (string) or a pixel value
+    let lineHeight = parseFloat(computedStyle.lineHeight);
+    if (isNaN(lineHeight) || computedStyle.lineHeight === 'normal') {
+      // If lineHeight is "normal" or NaN, calculate from fontSize and settings
+      lineHeight = fontSize * (this.settings.lineHeight || 1.6);
+    }
+    
+    // Validate values
+    if (isNaN(fontSize) || fontSize <= 0) {
+      console.error('Invalid fontSize:', fontSize);
+      this.showToast('Unable to calibrate - invalid font size', 'error');
+      return;
+    }
+    if (isNaN(lineHeight) || lineHeight <= 0) {
+      console.error('Invalid lineHeight:', lineHeight);
+      this.showToast('Unable to calibrate - invalid line height', 'error');
+      return;
+    }
+    
+    // Get actual viewport dimensions
     const viewportHeight = viewport.clientHeight;
-    const viewportWidth = this.settings.pageWidth;
+    const viewportActualWidth = viewport.clientWidth;
+    
+    // Calculate optimal page width based on viewport
+    // Use 65-70% of viewport width for comfortable reading
+    const optimalPageWidth = Math.floor(viewportActualWidth * 0.68);
+    // Clamp to reasonable range (400-2000px)
+    const calibratedPageWidth = Math.max(400, Math.min(2000, optimalPageWidth));
+    
+    if (viewportHeight <= 160) {
+      console.error('Viewport too small:', viewportHeight);
+      this.showToast('Viewport is too small to calibrate', 'error');
+      return;
+    }
     
     // Account for page-viewport padding (80px top/bottom from styles.css)
     const contentHeight = viewportHeight - 160; // 80px top + 80px bottom padding
     
     // Account for chapter-text padding (48px left/right, 48px+96px top/bottom)
-    const textWidth = Math.min(800, viewportWidth) - 96; // 48px * 2 padding
+    const textWidth = calibratedPageWidth - 96; // 48px * 2 padding
     const textHeight = contentHeight - 144; // 48px top + 96px bottom
+    
+    // Validate dimensions
+    if (textHeight <= 0 || textWidth <= 0) {
+      console.error('Invalid text dimensions:', { textWidth, textHeight });
+      this.showToast('Unable to calibrate - invalid text area dimensions', 'error');
+      return;
+    }
     
     // Calculate lines that fit
     const linesPerPage = Math.floor(textHeight / lineHeight);
     
     // Calculate average characters per line
-    // Use a typical character width estimation: 
-    // - Serif fonts: ~0.5em per char
-    // - Sans-serif: ~0.52em per char
-    // - Monospace: ~0.6em per char
-    const charWidthFactor = this.settings.fontFamily === 'monospace' ? 0.6 : 0.52;
+    // Use a more conservative character width estimation
+    const charWidthFactor = this.settings.fontFamily === 'monospace' ? 0.65 : 0.6;
     const avgCharsPerLine = Math.floor(textWidth / (fontSize * charWidthFactor));
     
-    // Calculate total chars per page
-    const calculatedChars = linesPerPage * avgCharsPerLine;
+    // Validate calculations
+    if (isNaN(linesPerPage) || linesPerPage <= 0 || isNaN(avgCharsPerLine) || avgCharsPerLine <= 0) {
+      console.error('Invalid calculations:', { linesPerPage, avgCharsPerLine });
+      this.showToast('Unable to calibrate - calculation error', 'error');
+      return;
+    }
     
-    // Clamp to reasonable range (600-3000)
+    // Calculate total chars per page with conservative estimate (reduce by 15% for better UX)
+    const calculatedChars = Math.floor((linesPerPage * avgCharsPerLine) * 0.85);
+    
+    // Clamp to reasonable range
     const calibratedDensity = Math.max(600, Math.min(3000, calculatedChars));
     
-    // Update settings
+    // Update settings for both page width and density
+    this.settings.pageWidth = calibratedPageWidth;
     this.settings.pageDensity = calibratedDensity;
     
-    // Update UI
+    // Update page width UI
+    const pageWidthInput = document.getElementById('page-width');
+    const pageWidthValue = document.getElementById('page-width-value');
+    if (pageWidthInput) pageWidthInput.value = calibratedPageWidth;
+    if (pageWidthValue) pageWidthValue.textContent = `${calibratedPageWidth}px`;
+    
+    // Update page density UI
     const pageDensityInput = document.getElementById('page-density');
     const pageDensityValue = document.getElementById('page-density-value');
     if (pageDensityInput) pageDensityInput.value = calibratedDensity;
@@ -455,21 +511,28 @@ export class SettingsUI {
       pageDensityValue.textContent = `${calibratedDensity} chars (~${words} words)`;
     }
     
-    // Save and apply
+    // Save and apply both settings
     this.saveSettings();
+    this.applyPageWidth();
     this.applyPageDensity();
-    this._emitLayoutChanged('pageDensity');
+    this._emitLayoutChanged('calibration');
+    
+    // Also emit the pageDensityChanged event for reader.js
+    window.dispatchEvent(new CustomEvent('pageDensityChanged', {
+      detail: { charsPerPage: calibratedDensity }
+    }));
     
     // Show feedback
-    console.log('📐 Page Density Calibration:');
-    console.log(`  Viewport: ${viewportWidth}px × ${viewportHeight}px`);
+    console.log('📐 Page Calibration:');
+    console.log(`  Viewport: ${viewportActualWidth}px × ${viewportHeight}px`);
+    console.log(`  ✓ Optimal page width: ${calibratedPageWidth}px (${Math.round(calibratedPageWidth/viewportActualWidth*100)}% of viewport)`);
     console.log(`  Text area: ${textWidth}px × ${textHeight}px`);
-    console.log(`  Font: ${fontSize}px, Line height: ${lineHeight}px`);
+    console.log(`  Font: ${fontSize}px, Line height: ${lineHeight.toFixed(2)}px`);
     console.log(`  Lines per page: ${linesPerPage}`);
     console.log(`  Chars per line: ${avgCharsPerLine}`);
-    console.log(`  ✓ Calibrated to: ${calibratedDensity} chars/page`);
+    console.log(`  ✓ Calibrated density: ${calibratedDensity} chars/page`);
     
-    alert(`✓ Page size calibrated!\n\n${calibratedDensity} characters per page\n(~${Math.round(calibratedDensity / 6)} words)\n\nBased on:\n• ${linesPerPage} lines per page\n• ${avgCharsPerLine} characters per line`);
+    this.showToast(`✓ Calibrated: ${calibratedPageWidth}px width, ${calibratedDensity} chars/page (~${Math.round(calibratedDensity / 6)} words)`, 'success');    
   }
 
   applyBrightness() {
@@ -501,8 +564,42 @@ export class SettingsUI {
       readerContent.style.color = '';
     }
 
+    // Update library view if it exists (on home page)
+    this.updateLibraryPageColor(base);
+
     // Re-apply warmth on top of any page color changes
     this.applyPageWarmth();
+  }
+
+  updateLibraryPageColor(colors) {
+    // Apply to body and library view
+    const libraryView = document.getElementById('library-view');
+    if (libraryView && libraryView.classList.contains('active')) {
+      document.body.style.backgroundColor = colors.bg;
+      document.body.style.color = colors.text;
+      
+      libraryView.style.backgroundColor = colors.bg;
+      libraryView.style.color = colors.text;
+      
+      // Apply to library container (center section)
+      const libraryContainer = document.querySelector('.library-container');
+      if (libraryContainer) {
+        libraryContainer.style.backgroundColor = colors.bg;
+        libraryContainer.style.color = colors.text;
+      }
+      
+      // Apply to book cards
+      document.querySelectorAll('.book-card').forEach(card => {
+        card.style.backgroundColor = colors.bg;
+        card.style.color = colors.text;
+      });
+      
+      // Update CSS variables for consistency
+      document.documentElement.style.setProperty('--reader-bg', colors.bg);
+      document.documentElement.style.setProperty('--reader-text', colors.text);
+      document.documentElement.style.setProperty('--bg-secondary', colors.bg);
+      document.documentElement.style.setProperty('--text-primary', colors.text);
+    }
   }
 
   applyPageWarmth() {
