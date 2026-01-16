@@ -45,23 +45,17 @@ class BooksWithMusicApp {
           await this.reader._musicInitPromise;
         }
         this.reader.musicManager.onChapterChange(this.reader.currentChapterIndex);
-<<<<<<< HEAD
-=======
         console.log('✓ Reader initialized');
         
         // Setup auth UI for reader page
         this.setupAuthUI(true);
->>>>>>> 84f1cd0e513437f0d69e7a22f57b863a559e884b
       } else {
         // Home page
         await this.library.initialize();
-<<<<<<< HEAD
-=======
         console.log('✓ Library initialized');
         
         // Setup auth UI for home page
         this.setupAuthUI(false);
->>>>>>> 84f1cd0e513437f0d69e7a22f57b863a559e884b
       }
       
       this.setupEventListeners();
