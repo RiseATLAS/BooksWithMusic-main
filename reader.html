@@ -36,6 +36,19 @@
             
             <!-- Top-right controls -->
             <div class="top-right-controls">
+                <!-- Authentication UI -->
+                <div id="auth-container-reader" class="auth-container-reader">
+                    <!-- Sign In Button (shown when not authenticated) -->
+                    <button id="sign-in-btn-reader" class="btn btn-icon auth-btn-reader" title="Sign In" style="display: none;">
+                        <span class="icon">👤</span>
+                    </button>
+                    
+                    <!-- User Profile (shown when authenticated) -->
+                    <div id="user-profile-reader" class="user-profile-reader" style="display: none;">
+                        <img id="user-photo-reader" class="user-photo-small" src="" alt="User" title="">
+                    </div>
+                </div>
+                
                 <button id="fullscreen-btn" class="btn btn-icon" title="Fullscreen (F11)">
                     <span class="icon">⛶</span>
                 </button>

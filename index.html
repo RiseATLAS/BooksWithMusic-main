@@ -13,6 +13,24 @@
         <header class="app-header">
             <h1>BooksWithMusic</h1>
             <div class="subtitle">Read with an adaptive soundtrack</div>
+            
+            <!-- Authentication UI -->
+            <div id="auth-container" class="auth-container">
+                <!-- Sign In Button (shown when not authenticated) -->
+                <button id="sign-in-btn" class="btn btn-secondary auth-btn" style="display: none;">
+                    <span class="icon">👤</span>
+                    Sign In with Google
+                </button>
+                
+                <!-- User Profile (shown when authenticated) -->
+                <div id="user-profile" class="user-profile" style="display: none;">
+                    <img id="user-photo" class="user-photo" src="" alt="User">
+                    <div class="user-info">
+                        <span id="user-name" class="user-name"></span>
+                        <button id="sign-out-btn" class="btn-text">Sign Out</button>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <div class="library-container">
