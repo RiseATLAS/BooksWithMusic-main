@@ -179,6 +179,26 @@ export class MusicPanelUI {
       }
     });
 
+    // Background music filter
+    const instrumentalOnlyCheckbox = document.getElementById('instrumental-only');
+    instrumentalOnlyCheckbox?.addEventListener('change', async (e) => {
+      const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+      settings.instrumentalOnly = e.target.checked;
+      localStorage.setItem('booksWithMusic-settings', JSON.stringify(settings));
+      
+      console.log('🎼 Background music filter:', e.target.checked ? 'ON' : 'OFF');
+      this.showToast(`${e.target.checked ? '🎹' : '🎤'} ${e.target.checked ? 'Background' : 'All'} music - Reloading tracks...`, 'info');
+      
+      // Reload music with new filter
+      await this.reloadMusicWithFilter();
+    });
+
+    // Load background music filter setting on startup
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    if (instrumentalOnlyCheckbox && settings.instrumentalOnly !== undefined) {
+      instrumentalOnlyCheckbox.checked = settings.instrumentalOnly;
+    }
+
     // Audio player events
     this.audioPlayer.on('trackEnded', () => {
       this.nextTrack();
@@ -500,9 +520,52 @@ export class MusicPanelUI {
     const newIndex = this.currentTrackIndex + 1;
     if (newIndex < this.playlist.length) {
       this.playTrack(newIndex);
-    } else {
-      // Loop to beginning
-      this.playTrack(0);
+    }
+  }
+
+  /**
+   * Reload music tracks with current filter settings
+   * Clears cache and reinitializes music manager
+   */
+  async reloadMusicWithFilter() {
+    try {
+      if (!this.musicManager) {
+        console.error('Music manager not available');
+        return;
+      }
+
+      // Stop current playback
+      this.audioPlayer.stop();
+      
+      // Clear music cache to force reload
+      localStorage.removeItem('music_tracks_cache');
+      console.log('🗑️ Cleared music cache');
+      
+      // Get current book and chapters
+      const reader = window.app?.reader;
+      if (!reader || !reader.currentBook || !reader.chapters) {
+        console.warn('Reader not available for music reload');
+        return;
+      }
+
+      // Reinitialize music manager with filter
+      console.log('🔄 Reinitializing music manager...');
+      await this.musicManager.initialize(reader.currentBook.id, reader.chapters);
+      
+      // Reload playlist for current chapter
+      const chapterIndex = reader.currentChapterIndex || 0;
+      const chapterAnalysis = this.musicManager.getChapterAnalysis(chapterIndex);
+      const mapping = this.musicManager.chapterMappings[reader.chapters[chapterIndex]?.id || reader.chapters[chapterIndex]?.title];
+      
+      if (mapping && mapping.tracks) {
+        await this.loadPlaylistForChapter(chapterIndex, mapping.tracks);
+        this.showToast('✓ Music tracks reloaded!', 'success');
+      }
+      
+      console.log('✓ Music reloaded with new filter');
+    } catch (error) {
+      console.error('Error reloading music:', error);
+      this.showToast('❌ Failed to reload music', 'error');
     }
   }
 

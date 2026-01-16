@@ -417,12 +417,13 @@ export class AIProcessor {
     const words = chapterContent.split(/\s+/);
     const wordsPerPage = Math.ceil(words.length / totalPages);
     
+    console.log(`📖 Analyzing ${totalPages} pages for mood shifts (${words.length} words, ~${wordsPerPage} words/page)`);
+    
     const sections = [];
-    const shiftPoints = [];
+    const potentialShifts = []; // Collect all potential shifts first
     let currentSectionMood = chapterMood;
-    let shiftsUsed = 0;
 
-    // Analyze each page
+    // PASS 1: Analyze each page and collect potential shifts
     for (let page = 1; page <= totalPages; page++) {
       const startWord = (page - 1) * wordsPerPage;
       const endWord = Math.min(page * wordsPerPage, words.length);
@@ -432,30 +433,75 @@ export class AIProcessor {
 
       const analysis = this.analyzePageMoodShift(pageText, currentSectionMood);
 
-      // Check if we should shift music at this page
-      if (analysis.shouldShift && shiftsUsed < maxShifts && page > 1) {
-        shiftPoints.push({
+      // Collect potential shift points with their scores
+      if (analysis.shouldShift && page > 1) {
+        potentialShifts.push({
           page,
           fromMood: currentSectionMood,
           toMood: analysis.pageMood,
           confidence: analysis.confidence,
           shiftScore: analysis.shiftScore
         });
-        currentSectionMood = analysis.pageMood;
-        shiftsUsed++;
+      }
+
+      if (page % 10 === 0) {
+        console.log(`📄 Page ${page}: Mood check (current: ${currentSectionMood}, page: ${analysis.pageMood}, shift score: ${analysis.shiftScore})`);
+      }
+    }
+
+    // PASS 2: Select best-distributed shifts across the chapter
+    const selectedShifts = [];
+    if (potentialShifts.length > 0) {
+      // Sort by shift score (highest first)
+      potentialShifts.sort((a, b) => b.shiftScore - a.shiftScore);
+      
+      // Calculate minimum spacing between shifts
+      const minSpacing = Math.floor(totalPages / (maxShifts + 1));
+      
+      console.log(`   Found ${potentialShifts.length} potential shifts, selecting ${maxShifts} best with min ${minSpacing} pages spacing`);
+      
+      for (const shift of potentialShifts) {
+        if (selectedShifts.length >= maxShifts) break;
+        
+        // Check if this shift is far enough from already selected shifts
+        const tooClose = selectedShifts.some(selected => 
+          Math.abs(selected.page - shift.page) < minSpacing
+        );
+        
+        if (!tooClose) {
+          selectedShifts.push(shift);
+          console.log(`🎵 Page ${shift.page}: Selected shift (${shift.fromMood} → ${shift.toMood}, score: ${shift.shiftScore})`);
+        }
+      }
+      
+      // Sort selected shifts by page number for easy lookup
+      selectedShifts.sort((a, b) => a.page - b.page);
+    }
+
+    // PASS 3: Build sections with selected shifts
+    currentSectionMood = chapterMood;
+    for (let page = 1; page <= totalPages; page++) {
+      const shift = selectedShifts.find(s => s.page === page);
+      if (shift) {
+        currentSectionMood = shift.toMood;
       }
 
       sections.push({
         page,
         mood: currentSectionMood,
-        moodStrength: analysis.moodStrength
+        moodStrength: 1 // Could be calculated if needed
       });
+    }
+    
+    console.log(`✓ Analysis complete: ${selectedShifts.length} shifts distributed across ${totalPages} pages`);
+    if (selectedShifts.length > 0) {
+      console.log(`   Shifts at pages: ${selectedShifts.map(sp => sp.page).join(', ')}`);
     }
 
     return {
       sections,
-      shiftPoints,
-      totalShifts: shiftsUsed
+      shiftPoints: selectedShifts,
+      totalShifts: selectedShifts.length
     };
   }
 }

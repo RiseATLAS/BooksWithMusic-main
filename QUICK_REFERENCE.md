@@ -38,8 +38,12 @@ Click **"Auto-Calibrate"** button in settings to automatically:
 
 ### Music Settings
 - **Music Enabled**: Toggle background music
+- **Auto-Play**: Start music automatically when opening book
+- **Background Music Only**: Filter to background/instrumental/ambient music (default: ON)
 - **Crossfade Duration**: 0-10 seconds
 - **Page-Based Switching**: Intelligent music changes as you read
+
+> **Note:** Changing the Background Music filter will clear the cache and reload all music tracks with the new filter.
 
 ## UI Controls
 
@@ -67,6 +71,7 @@ Two-column design (820px wide):
 2. Enable **Page Warmth** for night reading
 3. Adjust **Crossfade Duration** for smooth music transitions
 4. Use **Page-Based Switching** for dynamic music
+5. Keep **Background Music Only** enabled for distraction-free reading
 
 ### Performance
 - Music tracks cached for 24 hours (instant reload)

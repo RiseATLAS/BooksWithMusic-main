@@ -10,6 +10,12 @@ All notable changes and fixes to BooksWithMusic.
 
 ## Recent Updates (January 2026)
 
+### Instrumental Music Filter (January 13, 2026 - Part 7)
+- **Background music filter** - Checkbox setting to filter music to background/instrumental/ambient tracks only
+- **Smart filtering** - Searches for instrumental, background, ambient, and cinematic tags on Freesound API
+- **Auto-reload on change** - Changing the filter clears cache and reloads music tracks automatically
+- **Settings persistence** - Filter preference saved to localStorage and applied on startup
+
 ### Bug Fixes & Calibration Enhancement (January 13, 2026 - Part 6)
 - **Toggle chapters button fix** - Now properly hides/shows sidebar (toggles both `.hidden` and `.show` classes)
 - **Auto-calibration enhancement** - Now calculates and sets optimal page width (68% of viewport, 400-2000px range)

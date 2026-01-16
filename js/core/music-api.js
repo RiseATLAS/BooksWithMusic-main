@@ -81,9 +81,22 @@ export class MusicAPI {
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
+    // Check if background music filter is enabled
+    const settings = JSON.parse(localStorage.getItem('booksWithMusic-settings') || '{}');
+    const instrumentalOnly = settings.instrumentalOnly !== false; // Default true
+
     const query = tags.join(' ');
-    // Filter for music-like sounds: duration > 30s, exclude SFX
-    const url = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=duration:[30 TO *] tag:music&fields=id,name,username,duration,previews,tags,license&token=${this.freesoundKey}&page_size=${limit}`;
+    
+    // Build filter string
+    let filter = 'duration:[30 TO *] tag:music';
+    
+    // Add background music filter if enabled (instrumental, ambient, background, cinematic)
+    if (instrumentalOnly) {
+      filter += ' tag:instrumental OR tag:background OR tag:ambient OR tag:cinematic';
+      console.log('🎹 Filtering for background music only');
+    }
+    
+    const url = `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=${encodeURIComponent(filter)}&fields=id,name,username,duration,previews,tags,license&token=${this.freesoundKey}&page_size=${limit}`;
 
     try {
       this.lastRequestTime = Date.now();

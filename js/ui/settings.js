@@ -19,7 +19,8 @@ export class SettingsUI {
       musicEnabled: true,
       autoPlay: false,
       crossfadeDuration: 3,
-      pageBasedMusicSwitch: true  // Intelligent content-based music switching
+      pageBasedMusicSwitch: true,  // Intelligent content-based music switching
+      instrumentalOnly: true  // Filter to background/instrumental/ambient music only
     };
 
     this._layoutChangeTimer = null;

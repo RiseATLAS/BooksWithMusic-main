@@ -859,6 +859,7 @@ export class ReaderUI {
     const pageBasedMusicSwitch = settings.pageBasedMusicSwitch !== false; // Default true
     
     if (!pageBasedMusicSwitch) {
+      console.log(`⏭️ Page ${oldPage} → ${newPage} (music switching disabled)`);
       return; // User disabled this feature
     }
     
@@ -866,6 +867,14 @@ export class ReaderUI {
     let shiftInfo = null;
     if (this.currentChapterShiftPoints && this.currentChapterShiftPoints.shiftPoints) {
       shiftInfo = this.currentChapterShiftPoints.shiftPoints.find(sp => sp.page === newPage);
+      
+      if (shiftInfo) {
+        console.log(`🎵 Page ${newPage}: SHIFT POINT! (${shiftInfo.fromMood} → ${shiftInfo.toMood})`);
+      } else {
+        console.log(`📖 Page ${oldPage} → ${newPage} (no shift)`);
+      }
+    } else {
+      console.log(`📖 Page ${oldPage} → ${newPage} (no shift points available)`);
     }
     
     // Emit page change event that music panel can listen to
