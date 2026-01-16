@@ -31,7 +31,9 @@ const firebaseConfig = {
 // Check if Firebase is configured
 const isFirebaseConfigured = () => {
   return firebaseConfig.apiKey !== "YOUR_API_KEY" && 
-         firebaseConfig.projectId !== "YOUR_PROJECT_ID";
+         firebaseConfig.projectId !== "YOUR_PROJECT_ID" &&
+         firebaseConfig.authDomain !== "YOUR_PROJECT.firebaseapp.com" &&
+         firebaseConfig.storageBucket !== "YOUR_PROJECT.appspot.com";
 };
 
 // Initialize Firebase only if configured

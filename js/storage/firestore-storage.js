@@ -90,12 +90,17 @@ export async function saveBookProgress(userId, bookId, progress) {
   } catch (error) {
     // If document doesn't exist, create it
     if (error.code === 'not-found') {
-      const progressRef = doc(db, 'users', userId, 'books', bookId);
-      await setDoc(progressRef, {
-        progress: progress,
-        lastRead: serverTimestamp()
-      });
-      console.log(`✓ Progress saved for book ${bookId} (new document)`);
+      try {
+        const progressRef = doc(db, 'users', userId, 'books', bookId);
+        await setDoc(progressRef, {
+          progress: progress,
+          lastRead: serverTimestamp()
+        });
+        console.log(`✓ Progress saved for book ${bookId} (new document)`);
+      } catch (setError) {
+        console.error('Error creating book progress document:', setError);
+        throw new Error(`Failed to save progress: ${setError.message}`);
+      }
     } else {
       console.error('Error saving book progress:', error);
       throw new Error(`Failed to save progress: ${error.message}`);
