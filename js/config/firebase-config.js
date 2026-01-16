@@ -15,6 +15,9 @@
 // Always use environment variables (.env file) for production deployments.
 // The .env file is gitignored to prevent accidental commits.
 //
+// 📝 PRODUCTION: Firebase credentials are stored as GitHub repository secrets
+// for secure CI/CD deployment. They are automatically injected during build.
+//
 // 🚫 ANALYTICS DISABLED: Firebase Analytics is intentionally disabled
 // for privacy reasons. Only Authentication, Firestore, and Storage are used.
 

@@ -44,8 +44,23 @@ Only when Firebase is configured (optional):
 We use environment variables to protect sensitive configuration:
 
 1. **Local Development**: Use `.env` file (gitignored)
-2. **Production**: Use CI/CD secrets or hosting platform environment variables
+2. **Production/CI/CD**: Firebase credentials are stored as **GitHub repository secrets**
+   - Location: Repository Settings > Secrets and variables > Actions
+   - Automatically injected during GitHub Actions builds
+   - Never exposed in logs or public outputs
 3. **Example Configuration**: See `.env.example` for template (contains no real keys)
+
+### Repository Secrets (Production)
+
+For this repository, Firebase variables are securely stored as GitHub repository secrets:
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+
+This ensures production deployments are secure without exposing credentials.
 
 ### Firebase Configuration
 

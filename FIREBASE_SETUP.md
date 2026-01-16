@@ -136,7 +136,11 @@ service firebase.storage {
 
 You have two options for adding your Firebase configuration:
 
-### Option A: Using Environment Variables (Recommended for GitHub Pages)
+### Option A: Using Environment Variables (Recommended)
+
+**For this repository, Firebase variables are already configured as GitHub repository secrets** for secure deployment. 
+
+For local development, create a `.env` file:
 
 1. Create a `.env` file in your project root (this file is already gitignored)
 2. Add your Firebase configuration values:
@@ -151,10 +155,10 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 # Note: VITE_FIREBASE_MEASUREMENT_ID is not needed - Analytics is disabled
 ```
 
-3. For GitHub Pages deployment, you'll need to set these as repository secrets:
-   - Go to your GitHub repository
-   - Navigate to **Settings > Secrets and variables > Actions**
-   - Add each variable as a secret (e.g., `VITE_FIREBASE_API_KEY`)
+**📝 Note:** For GitHub Pages/Actions deployment, Firebase credentials are already stored as repository secrets:
+   - Location: **Repository Settings > Secrets and variables > Actions**
+   - The CI/CD pipeline automatically uses these secrets during build
+   - Variables: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, etc.
 
 **🔐 SECURITY REMINDER:** Never commit the `.env` file to version control. It's already in `.gitignore` for your protection.
 
