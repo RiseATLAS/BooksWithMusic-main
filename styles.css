@@ -1068,6 +1068,7 @@ body {
 
 .toast-success { border-left: 4px solid #10b981; }
 .toast-error { border-left: 4px solid #ef4444; }
+.toast-info { border-left: 4px solid #3b82f6; }
 
 /* Fullscreen mode */
 /* Ensure fullscreen uses the same paper color everywhere (no body gradient bleeding through) */
@@ -1197,5 +1198,168 @@ body {
   .book-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 1rem;
+  }
+}
+
+/* ========================================
+   Authentication UI Styles
+   ======================================== */
+
+/* Authentication container in header */
+.auth-container {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 100;
+}
+
+.auth-btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
+  padding: 0.625rem 1.25rem;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.auth-btn:hover {
+  background: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* User profile display */
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-photo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  transition: opacity 0.2s;
+}
+
+.btn-text:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+/* Reader page authentication styles */
+.auth-container-reader {
+  display: inline-flex;
+  align-items: center;
+}
+
+.auth-btn-reader {
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.auth-btn-reader:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.user-profile-reader {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.user-profile-reader:hover {
+  transform: scale(1.1);
+}
+
+.user-photo-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Loading indicator for auth operations */
+.auth-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.auth-loading::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .auth-container {
+    top: 1rem;
+    right: 1rem;
+  }
+  
+  .user-name {
+    max-width: 100px;
+  }
+  
+  .user-photo {
+    width: 32px;
+    height: 32px;
   }
 }
